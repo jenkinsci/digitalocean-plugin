@@ -13,6 +13,22 @@
     <packaging>hpi</packaging>
     <name>DigitalOcean plugin</name>
 
+    <url>https://wiki.jenkins-ci.org/display/JENKINS/Digital+Ocean+Plugin</url>
+
+    <developers>
+        <developer>
+            <id>pulse00</id>
+            <name>Robert Gruendler</name>
+            <email>robert.gruendler@dubture.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:ssh://github.com/jenkinsci/digitalocean-plugin.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/jenkinsci/digitalocean-plugin.git</developerConnection>
+        <url>https://github.com/jenkinsci/digitalocean-plugin</url>
+    </scm>
+
     <licenses>
         <license>
             <name>MIT License</name>
@@ -46,7 +62,17 @@
             <artifactId>guava</artifactId>
             <version>15.0</version>
         </dependency>
-
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-release-plugin</artifactId>
+                <configuration>
+                    <goals>deploy</goals>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
