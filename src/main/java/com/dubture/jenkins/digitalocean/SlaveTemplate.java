@@ -152,7 +152,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             // check for existing droplets
             List<Droplet> availableDroplets = apiClient.getAvailableDroplets();
             for (Droplet existing : availableDroplets) {
-                if (existing.getImageId().equals(imageId) && ! existing.isArchived() && (existing.getName() != null && ! existing.getName().startsWith("jenkins_"))) {
+                if (existing.getImageId().equals(imageId) && ! "archive".equals(existing.getStatus()) /*existing.isArchived()*/ && (existing.getName() != null && ! existing.getName().startsWith("jenkins_"))) {
                     logger.println("Creating slave from existing droplet " + existing.getId());
                     return newSlave(existing, privateKey);
                 }

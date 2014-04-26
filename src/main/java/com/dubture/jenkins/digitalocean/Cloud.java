@@ -162,7 +162,7 @@ public class Cloud extends AbstractCloudImpl {
 
         for (Droplet droplet : availableDroplets) {
             if (imageId == null || droplet.getImageId() == imageId) {
-                if (droplet.isActive() || droplet.isNew()) {
+                if ("active".equals(droplet.getStatus()) || "new".equals(droplet.getStatus()) /*droplet.isActive() || droplet.isNew()*/) {
                     count++;
                 }
             }
