@@ -41,6 +41,10 @@
             <id>repo.jenkins-ci.org</id>
             <url>http://repo.jenkins-ci.org/public/</url>
         </repository>
+        <repository>
+            <id>oss-sonatype</id>
+            <url>http://oss.sonatype.org/content/repositories/snapshots/</url>
+        </repository>
     </repositories>
 
     <pluginRepositories>
