@@ -253,7 +253,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     public String createDropletName() {
-        return DROPLET_PREFIX + UUID.randomUUID().toString();
+        return "jenkins-" + UUID.randomUUID().toString();
     }
 
     public int getSizeId() {
