@@ -161,7 +161,7 @@ public class Cloud extends AbstractCloudImpl {
         List<Droplet> availableDroplets = apiClient.getAvailableDroplets();
 
         for (Droplet droplet : availableDroplets) {
-            if (imageId == null || droplet.getImageId() == imageId) {
+            if (imageId == null || imageId.equals(droplet.getImageId())) {
                 if ("active".equals(droplet.getStatus()) || "new".equals(droplet.getStatus()) /*droplet.isActive() || droplet.isNew()*/) {
                     count++;
                 }
@@ -255,12 +255,13 @@ public class Cloud extends AbstractCloudImpl {
                     break;
                 }
 
-                nodes.add(new NodeProvisioner.PlannedNode(template.getDropletName(), Computer.threadPoolForRemoting.submit(new Callable<Node>() {
+                final String dropletName = template.createDropletName();
+                nodes.add(new NodeProvisioner.PlannedNode(dropletName, Computer.threadPoolForRemoting.submit(new Callable<Node>() {
 
                     public Node call() throws Exception {
                         // TODO: record the output somewhere
                         try {
-                            Slave slave = template.provision(apiClient, privateKey, sshKeyId, new StreamTaskListener(System.out, Charset.defaultCharset()));
+                            Slave slave = template.provision(apiClient, dropletName, privateKey, sshKeyId, new StreamTaskListener(System.out, Charset.defaultCharset()));
                             Jenkins.getInstance().addNode(slave);
                             slave.toComputer().connect(false).get();
                             return slave;

@@ -51,6 +51,8 @@ public class Slave extends AbstractCloudSlave {
 
     private static final Logger LOG = Logger.getLogger(Slave.class.getName());
 
+    private final String cloudName;
+
     private final int idleTerminationTime;
 
     public final String initScript;
@@ -85,8 +87,9 @@ public class Slave extends AbstractCloudSlave {
      * @throws Descriptor.FormException
      * @throws IOException
      */
-    public Slave(String name, String nodeDescription, Integer dropletId, String privateKey, String remoteFS, String remoteAdmin, int numExecutors, int idleTerminationTime, Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy, List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmopts) throws Descriptor.FormException, IOException {
+    public Slave(String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey, String remoteFS, String remoteAdmin, int numExecutors, int idleTerminationTime, Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy, List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmopts) throws Descriptor.FormException, IOException {
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy, nodeProperties);
+        this.cloudName = cloudName;
         this.dropletId = dropletId;
         this.privateKey = privateKey;
         this.remoteAdmin = remoteAdmin;
@@ -123,7 +126,7 @@ public class Slave extends AbstractCloudSlave {
      * @return
      */
     public Cloud getCloud() {
-        return (Cloud) Hudson.getInstance().getCloud(name);
+        return (Cloud) Hudson.getInstance().getCloud(cloudName);
     }
 
     /**
