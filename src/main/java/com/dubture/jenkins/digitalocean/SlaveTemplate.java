@@ -151,15 +151,6 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         try {
             logger.println("Starting to provision digital ocean droplet using image: " + imageId + ", region: " + regionId + ", size: " + sizeId);
 
-            // check for existing droplets
-            List<Droplet> availableDroplets = apiClient.getAvailableDroplets();
-            for (Droplet existing : availableDroplets) {
-                if (existing.getImageId().equals(imageId) && ! "archive".equals(existing.getStatus()) /*existing.isArchived()*/ && (existing.getName() != null && ! existing.getName().startsWith(DROPLET_PREFIX))) {
-                    logger.println("Creating slave from existing droplet " + existing.getId());
-                    return newSlave(existing, privateKey);
-                }
-            }
-
             // create a new droplet
             // TODO: set the data from the UI
             Droplet droplet = new Droplet();
