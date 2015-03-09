@@ -82,11 +82,6 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public final Integer imageId;
 
     /**
-     * The name for the droplet (generated automatically)
-     */
-    private final String dropletName;
-
-    /**
      * The specified droplet size.
      */
     private final Integer sizeId;
@@ -113,9 +108,6 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      */
     @DataBoundConstructor
     public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes, String labelString) {
-
-        // prefix the dropletname with jenkins_ so we know its created by us and can be re-used as a slave if needed
-        this.dropletName = DROPLET_PREFIX + UUID.randomUUID().toString();
         this.imageId = Integer.parseInt(imageId);
         this.sizeId = Integer.parseInt(sizeId);
         this.regionId = Integer.parseInt(regionId);
@@ -145,7 +137,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @throws ResourceNotFoundException
      * @throws Descriptor.FormException
      */
-    public Slave provision(DigitalOceanClient apiClient, String privateKey, Integer sshKeyId, StreamTaskListener listener) throws IOException, RequestUnsuccessfulException, AccessDeniedException, ResourceNotFoundException, Descriptor.FormException {
+    public Slave provision(DigitalOceanClient apiClient, String dropletName, String privateKey, Integer sshKeyId, StreamTaskListener listener) throws IOException, RequestUnsuccessfulException, AccessDeniedException, ResourceNotFoundException, Descriptor.FormException {
 
         PrintStream logger = listener.getLogger();
         try {
@@ -176,7 +168,24 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @throws Descriptor.FormException
      */
     private Slave newSlave(Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
-        return new Slave(getParent().getName(), droplet.getName(), droplet.getId(), privateKey, "/jenkins", "root", 1, idleTerminationInMinutes, Node.Mode.NORMAL, labels, new ComputerLauncher(), new RetentionStrategy(), Collections.<NodeProperty<?>>emptyList(), "", "");
+        return new Slave(
+                getParent().getName(),
+                droplet.getName(),
+                "Computer running on DigitalOcean with name: " + droplet.getName(),
+                droplet.getId(),
+                privateKey,
+                "/jenkins",
+                "root",
+                1,
+                idleTerminationInMinutes,
+                Node.Mode.NORMAL,
+                labels,
+                new ComputerLauncher(),
+                new RetentionStrategy(),
+                Collections.<NodeProperty<?>>emptyList(),
+                "",
+                ""
+        );
     }
 
     @Extension
@@ -234,8 +243,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return Hudson.getInstance().getDescriptor(getClass());
     }
 
-    public String getDropletName() {
-        return dropletName;
+    public String createDropletName() {
+        return "jenkins-" + UUID.randomUUID().toString();
     }
 
     public int getSizeId() {
