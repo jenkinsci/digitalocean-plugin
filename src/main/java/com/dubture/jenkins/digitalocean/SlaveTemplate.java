@@ -68,6 +68,8 @@ import java.util.logging.Logger;
  */
 public class SlaveTemplate implements Describable<SlaveTemplate> {
 
+    private static final String DROPLET_PREFIX = "jenkins-";
+
     private final String labelString;
 
     private final int idleTerminationInMinutes;
@@ -113,7 +115,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes, String labelString) {
 
         // prefix the dropletname with jenkins_ so we know its created by us and can be re-used as a slave if needed
-        this.dropletName = "jenkins_" + UUID.randomUUID().toString();
+        this.dropletName = DROPLET_PREFIX + UUID.randomUUID().toString();
         this.imageId = Integer.parseInt(imageId);
         this.sizeId = Integer.parseInt(sizeId);
         this.regionId = Integer.parseInt(regionId);
@@ -152,7 +154,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             // check for existing droplets
             List<Droplet> availableDroplets = apiClient.getAvailableDroplets();
             for (Droplet existing : availableDroplets) {
-                if (existing.getImageId().equals(imageId) && ! "archive".equals(existing.getStatus()) /*existing.isArchived()*/ && (existing.getName() != null && ! existing.getName().startsWith("jenkins_"))) {
+                if (existing.getImageId().equals(imageId) && ! "archive".equals(existing.getStatus()) /*existing.isArchived()*/ && (existing.getName() != null && ! existing.getName().startsWith(DROPLET_PREFIX))) {
                     logger.println("Creating slave from existing droplet " + existing.getId());
                     return newSlave(existing, privateKey);
                 }
