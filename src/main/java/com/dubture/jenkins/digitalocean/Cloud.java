@@ -308,21 +308,11 @@ public class Cloud extends AbstractCloudImpl {
     }
 
     public SlaveTemplate getTemplate(Label label) {
-
-        if (label == null && templates.size() > 0) {
-            return templates.get(0);
-        }
-
-        if ("master".equals(label.getName())) {
-            if (templates.size() > 0) {
-                return templates.get(0);
-            } else {
-                return null;
-            }
-        }
-
         for (SlaveTemplate t : templates) {
-            if(label == null || label.matches(t.getLabelSet())) {
+            if(label == null && t.getLabelSet().size() != 0) {
+                continue;
+            }
+            if((label == null && t.getLabelSet().size() == 0) || label.matches(t.getLabelSet())) {
                 return t;
             }
         }
