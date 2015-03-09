@@ -133,7 +133,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
                 // TODO: Add support for non-debian based java installations
                 // and let the user select the java version
-                if(conn.exec("apt-get install -y openjdk-7-jdk", logger) !=0) {
+                if(conn.exec("apt-get update -q && apt-get install -y openjdk-7-jdk", logger) !=0) {
                     logger.println("Failed to download Java");
                     return;
                 }
