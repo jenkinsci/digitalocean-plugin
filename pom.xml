@@ -20,6 +20,11 @@
             <name>Robert Gruendler</name>
             <email>robert.gruendler@dubture.com</email>
         </developer>
+        <developer>
+            <id>anpieber</id>
+            <name>Andreas Pieber</name>
+            <email>anpieber@gmail.com</email>
+        </developer>
     </developers>
 
     <scm>
@@ -79,3 +84,4 @@
     </build>
 
 </project>
+
