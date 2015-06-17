@@ -134,7 +134,7 @@ public class Cloud extends AbstractCloudImpl {
             this.templates = templates;
         }
 
-        LOGGER.info("Creating DigitalOcean cloud with " + templates.size() + " templates");
+        LOGGER.info("Creating DigitalOcean cloud with " + this.templates.size() + " templates");
 
         readResolve();
     }
