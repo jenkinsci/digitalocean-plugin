@@ -26,12 +26,12 @@ package com.dubture.jenkins.digitalocean;
 
 import hudson.Extension;
 import hudson.model.Descriptor;
-import hudson.model.Hudson;
 import hudson.model.TaskListener;
 import hudson.slaves.AbstractCloudSlave;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.RetentionStrategy;
+import jenkins.model.Jenkins;
 
 import java.io.IOException;
 import java.util.List;
@@ -42,8 +42,10 @@ import java.util.logging.Logger;
  *
  * The {@link com.dubture.jenkins.digitalocean.Slave} is responsible for
  *
- * - Creating a DigitalOcean {@link com.dubture.jenkins.digitalocean.Computer}
- * - Destroying the {@link com.myjeeva.digitalocean.pojo.Droplet} if it's not needed anymore.
+ * <ul>
+ *   <li>Creating a DigitalOcean {@link com.dubture.jenkins.digitalocean.Computer}</li>
+ *   <li>Destroying the {@link com.myjeeva.digitalocean.pojo.Droplet} if it's not needed anymore.</li>
+ * </ul>
  *
  * @author robert.gruendler@dubture.com
  */
@@ -114,7 +116,7 @@ public class Slave extends AbstractCloudSlave {
 
     /**
      * Override to create a DigitalOcean {@link com.dubture.jenkins.digitalocean.Computer}
-     * @return
+     * @return a new Computer instance, instantiated with this Slave instance.
      */
     @Override
     public Computer createComputer() {
@@ -123,15 +125,15 @@ public class Slave extends AbstractCloudSlave {
 
     /**
      * Retrieve a handle to the associated {@link com.dubture.jenkins.digitalocean.Cloud}
-     * @return
+     * @return the Cloud associated with the specified cloudName
      */
     public Cloud getCloud() {
-        return (Cloud) Hudson.getInstance().getCloud(cloudName);
+        return (Cloud) Jenkins.getInstance().getCloud(cloudName);
     }
 
     /**
      * Get the name of the remote admin user
-     * @return
+     * @return the remote admin user, defaulting to "root"
      */
     public String getRemoteAdmin() {
         if (remoteAdmin == null || remoteAdmin.length() == 0)
@@ -142,7 +144,7 @@ public class Slave extends AbstractCloudSlave {
     /**
      * Deletes the {@link com.myjeeva.digitalocean.pojo.Droplet} when not needed anymore.
      *
-     * @param listener
+     * @param listener Unused
      * @throws IOException
      * @throws InterruptedException
      */

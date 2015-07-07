@@ -25,9 +25,8 @@
 package com.dubture.jenkins.digitalocean;
 
 import com.myjeeva.digitalocean.DigitalOcean;
-import com.myjeeva.digitalocean.exception.AccessDeniedException;
+import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
-import com.myjeeva.digitalocean.exception.ResourceNotFoundException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import hudson.slaves.AbstractCloudComputer;
@@ -49,22 +48,19 @@ public class Computer extends AbstractCloudComputer<Slave> {
 
     private static final Logger LOGGER = Logger.getLogger(Computer.class.getName());
 
-    private final String clientId;
-
-    private final String apiKey;
+    private final String authToken;
 
     private Integer dropletId;
 
     public Computer(Slave slave) {
         super(slave);
         dropletId = slave.getDropletId();
-        apiKey = slave.getCloud().getApiKey();
-        clientId = slave.getCloud().getClientId();
+        authToken = slave.getCloud().getAuthToken();
     }
 
-    public Droplet updateInstanceDescription() throws InterruptedException, RequestUnsuccessfulException, AccessDeniedException, ResourceNotFoundException {
+    public Droplet updateInstanceDescription() throws InterruptedException, RequestUnsuccessfulException, DigitalOceanException {
 
-        DigitalOcean apiClient = new DigitalOceanClient(clientId, apiKey);
+        DigitalOcean apiClient = new DigitalOceanClient(authToken);
         Droplet dropletInfo = apiClient.getDropletInfo(dropletId);
         return dropletInfo;
     }
@@ -75,14 +71,14 @@ public class Computer extends AbstractCloudComputer<Slave> {
 
         try {
             LOGGER.info("Slave removed, deleting droplet " + dropletId);
-            DigitalOcean apiClient = new DigitalOceanClient(clientId, apiKey);
+            DigitalOcean apiClient = new DigitalOceanClient(authToken);
             apiClient.deleteDroplet(dropletId);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, e.getMessage(), e);
         }
     }
 
-    public long getUptime() throws RequestUnsuccessfulException, AccessDeniedException, ResourceNotFoundException {
+    public long getUptime() throws RequestUnsuccessfulException {
         //TODO: calculate uptime
         return 3600;
     }

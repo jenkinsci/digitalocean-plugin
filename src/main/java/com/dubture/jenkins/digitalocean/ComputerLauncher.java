@@ -25,18 +25,18 @@
 package com.dubture.jenkins.digitalocean;
 
 import com.google.common.base.Strings;
-import com.myjeeva.digitalocean.exception.AccessDeniedException;
+import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
-import com.myjeeva.digitalocean.exception.ResourceNotFoundException;
 import com.myjeeva.digitalocean.pojo.Droplet;
+import com.myjeeva.digitalocean.pojo.Network;
 import com.trilead.ssh2.Connection;
 import com.trilead.ssh2.SCPClient;
 import com.trilead.ssh2.Session;
-import hudson.model.Hudson;
 import hudson.model.TaskListener;
 import hudson.remoting.Channel;
 import hudson.slaves.SlaveComputer;
 import hudson.util.TimeUnit2;
+import jenkins.model.Jenkins;
 import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
@@ -140,7 +140,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
             }
 
             logger.println("Copying slave.jar");
-            scp.put(Hudson.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar","/tmp");
+            scp.put(Jenkins.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar","/tmp");
             String jvmopts = computer.getNode().jvmopts;
             String launchString = "java " + (jvmopts != null ? jvmopts : "") + " -jar /tmp/slave.jar";
             logger.println("Launching slave agent: " + launchString);
@@ -202,7 +202,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         }
     }
 
-    private Connection connectToSsh(Computer computer, PrintStream logger) throws InterruptedException, RequestUnsuccessfulException, AccessDeniedException, ResourceNotFoundException {
+    private Connection connectToSsh(Computer computer, PrintStream logger) throws InterruptedException, RequestUnsuccessfulException, DigitalOceanException {
 
         // TODO: make configurable?
         final long timeout = TimeUnit2.MINUTES.toMillis(5);
@@ -214,8 +214,8 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                 if ( waitTime > timeout ) {
                     throw new RuntimeException("Timed out after "+ (waitTime / 1000) + " seconds of waiting for ssh to become available. (maximum timeout configured is "+ (timeout / 1000) + ")" );
                 }
-                Droplet instance = computer.updateInstanceDescription();
-                String host = instance.getIpAddress();
+
+                String host = getIpAddress(computer);
 
                 if (Strings.isNullOrEmpty(host) || "0.0.0.0".equals(host)) {
                     logger.println("No ip address yet, your host is most likely waiting for an ip address.");
@@ -234,6 +234,19 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                 Thread.sleep(5000);
             }
         }
+    }
+
+    private String getIpAddress(Computer computer) throws InterruptedException, RequestUnsuccessfulException, DigitalOceanException {
+        Droplet instance = computer.updateInstanceDescription();
+
+        for (final Network network : instance.getNetworks().getVersion4Networks()) {
+            String host = network.getIpAddress();
+            if (host != null) {
+                return host;
+            }
+        }
+
+        return null;
     }
 
     private int waitCompletion(Session session) throws InterruptedException {
