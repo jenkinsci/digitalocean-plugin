@@ -24,44 +24,51 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.myjeeva.digitalocean.exception.AccessDeniedException;
+import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
-import com.myjeeva.digitalocean.exception.ResourceNotFoundException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
-import com.myjeeva.digitalocean.pojo.DropletImage;
-import com.myjeeva.digitalocean.pojo.DropletSize;
+import com.myjeeva.digitalocean.pojo.Image;
+import com.myjeeva.digitalocean.pojo.Images;
+import com.myjeeva.digitalocean.pojo.Key;
 import com.myjeeva.digitalocean.pojo.Region;
+import com.myjeeva.digitalocean.pojo.Regions;
+import com.myjeeva.digitalocean.pojo.Size;
+import com.myjeeva.digitalocean.pojo.Sizes;
 import hudson.Extension;
 import hudson.RelativePath;
 import hudson.Util;
 import hudson.model.Describable;
 import hudson.model.Descriptor;
-import hudson.model.Hudson;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.labels.LabelAtom;
 import hudson.slaves.NodeProperty;
 import hudson.util.ListBoxModel;
 import hudson.util.StreamTaskListener;
+import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static com.google.common.collect.Lists.newArrayList;
 
 /**
  * A {@link com.dubture.jenkins.digitalocean.SlaveTemplate} represents the configuration values for creating a
  * new slave via a DigitalOcean droplet.
  *
- * Holds things like Image ID, size and region used for the specific droplet.
+ * Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * The {@link SlaveTemplate#provision(com.myjeeva.digitalocean.impl.DigitalOceanClient, String, Integer, hudson.util.StreamTaskListener)} method
+ * The {@link SlaveTemplate#provision(com.myjeeva.digitalocean.impl.DigitalOceanClient, String, String, Integer, hudson.util.StreamTaskListener)} method
  * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
@@ -74,22 +81,22 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final int idleTerminationInMinutes;
 
-    public final String labels;
+    private final String labels;
 
     /**
      * The Image to be used for the droplet.
      */
-    public final Integer imageId;
+    private final String imageId;
 
     /**
-     * The specified droplet size.
+     * The specified droplet sizeId.
      */
-    private final Integer sizeId;
+    private final String sizeId;
 
     /**
      * The region for the droplet.
      */
-    private final Integer regionId;
+    private final String regionId;
 
     private transient Set<LabelAtom> labelSet;
 
@@ -100,17 +107,18 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     /**
      * Data is injected from the global Jenkins configuration via jelly.
-     * @param imageId
-     * @param sizeId
-     * @param regionId
-     * @param idleTerminationInMinutes
-     * @param labelString
+     * @param imageId an image slug e.g. "ubuntu-14-04-x64"
+     * @param sizeId the image size e.g. "512mb" or "1gb"
+     * @param regionId the region e.g. "nyc1"
+     * @param idleTerminationInMinutes how long to wait before destroying a slave
+     * @param labelString the label for this slave
      */
     @DataBoundConstructor
     public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes, String labelString) {
-        this.imageId = Integer.parseInt(imageId);
-        this.sizeId = Integer.parseInt(sizeId);
-        this.regionId = Integer.parseInt(regionId);
+        LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}", new Object[] { imageId, sizeId, regionId});
+        this.imageId = imageId;
+        this.sizeId = sizeId;
+        this.regionId = regionId;
 
         this.idleTerminationInMinutes = Integer.parseInt(idleTerminationInMinutes);
         this.labelString = labelString;
@@ -127,32 +135,36 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     /**
      * Creates a new droplet on DigitalOcean to be used as a Jenkins slave.
      *
-     * @param apiClient
-     * @param privateKey
-     * @param sshKeyId
-     *@param listener  @return
+     * @param apiClient the v2 API client to use
+     * @param privateKey the RSA private key to use
+     * @param sshKeyId the SSH key name name to use
+     * @param listener the listener on which to report progress
+     * @return the provisioned {@link Slave}
      * @throws IOException
      * @throws RequestUnsuccessfulException
-     * @throws AccessDeniedException
-     * @throws ResourceNotFoundException
      * @throws Descriptor.FormException
      */
-    public Slave provision(DigitalOceanClient apiClient, String dropletName, String privateKey, Integer sshKeyId, StreamTaskListener listener) throws IOException, RequestUnsuccessfulException, AccessDeniedException, ResourceNotFoundException, Descriptor.FormException {
+    public Slave provision(DigitalOceanClient apiClient, String dropletName, String privateKey, Integer sshKeyId, StreamTaskListener listener) throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
+
+        LOGGER.log(Level.INFO, "Provisioning slave...");
 
         PrintStream logger = listener.getLogger();
         try {
-            logger.println("Starting to provision digital ocean droplet using image: " + imageId + ", region: " + regionId + ", size: " + sizeId);
+            logger.println("Starting to provision digital ocean droplet using image: " + imageId + ", region: " + regionId + ", sizeId: " + sizeId);
 
             // create a new droplet
             // TODO: set the data from the UI
             Droplet droplet = new Droplet();
             droplet.setName(dropletName);
-            droplet.setSizeId(sizeId);
-            droplet.setRegionId(regionId);
-            droplet.setImageId(imageId);
+            droplet.setSize(sizeId);
+            droplet.setRegion(new Region(regionId));
+            droplet.setImage(new Image(imageId));
+            droplet.setKeys(newArrayList(new Key(sshKeyId)));
 
             logger.println("Creating slave with new droplet " + dropletName);
-            return newSlave(apiClient.createDroplet(droplet, sshKeyId.toString()), privateKey);
+
+            Droplet createdDroplet = apiClient.createDroplet(droplet);
+            return newSlave(createdDroplet, privateKey);
         } catch (Exception e) {
             e.printStackTrace(logger);
             throw new AssertionError();
@@ -161,13 +173,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     /**
      * Create a new {@link com.dubture.jenkins.digitalocean.Slave} from the given {@link com.myjeeva.digitalocean.pojo.Droplet}
-     * @param droplet
-     * @param privateKey
-     * @return
+     * @param droplet the droplet being created
+     * @param privateKey the RSA private key being used
+     * @return the provisioned {@link Slave}
      * @throws IOException
      * @throws Descriptor.FormException
      */
     private Slave newSlave(Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
+        LOGGER.log(Level.INFO, "Creating new slave...");
         return new Slave(
                 getParent().getName(),
                 droplet.getName(),
@@ -196,62 +209,108 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return null;
         }
 
-        public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String apiKey, @RelativePath("..")  @QueryParameter String clientId) throws Exception {
+        public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
 
-            DigitalOceanClient client = new DigitalOceanClient(clientId, apiKey);
-            List<DropletSize> availableSizes = client.getAvailableSizes();
+            List<Size> availableSizes = getAvailableSizes(authToken);
             ListBoxModel model = new ListBoxModel();
 
-            for (DropletSize size : availableSizes) {
-                model.add(size.getName(), size.getId().toString());
+            for (Size size : availableSizes) {
+                model.add(size.getSlug());
             }
 
             return model;
         }
 
-        public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String apiKey, @RelativePath("..")  @QueryParameter String clientId) throws Exception {
+        private static List<Size> getAvailableSizes(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+            DigitalOceanClient client = new DigitalOceanClient(authToken);
 
-            DigitalOceanClient client = new DigitalOceanClient(clientId, apiKey);
+            List<Size> availableSizes = new ArrayList<Size>();
+            int page = 0;
+            Sizes sizes;
 
-            List<DropletImage> availableSizes = client.getAvailableImages();
+            do {
+                page += 1;
+                sizes = client.getAvailableSizes(page);
+                availableSizes.addAll(sizes.getSizes());
+            }
+            while (sizes.getMeta().getTotal() > page);
+
+            return availableSizes;
+        }
+
+        public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
+
+            List<Image> availableSizes = getAvailableImages(authToken);
             ListBoxModel model = new ListBoxModel();
 
-            for (DropletImage image : availableSizes) {
-                model.add(image.getName(), image.getId().toString());
+            for (Image image : availableSizes) {
+                model.add(image.getDistribution() + " " + image.getName(), image.getSlug());
             }
 
             return model;
         }
 
-        public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String apiKey, @RelativePath("..")  @QueryParameter String clientId) throws Exception {
+        private static List<Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+            DigitalOceanClient client = new DigitalOceanClient(authToken);
 
-            DigitalOceanClient client = new DigitalOceanClient(clientId, apiKey);
+            List<Image> availableSizes = new ArrayList<Image>();
+            Images images;
+            int page = 0;
 
-            List<Region> availableSizes = client.getAvailableRegions();
+            do {
+                page += 1;
+                images = client.getAvailableImages(page);
+                availableSizes.addAll(images.getImages());
+            }
+            while (images.getMeta().getTotal() > page);
+
+            return availableSizes;
+        }
+
+        public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
+
+            List<Region> availableSizes = getAvailableRegions(authToken);
             ListBoxModel model = new ListBoxModel();
 
-            for (Region image : availableSizes) {
-                model.add(image.getName(), image.getId().toString());
+            for (Region region : availableSizes) {
+                model.add(region.getName(), region.getSlug());
             }
 
             return model;
+        }
+
+        private static List<Region> getAvailableRegions(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+            DigitalOceanClient client = new DigitalOceanClient(authToken);
+
+            List<Region> availableRegions = new ArrayList<Region>();
+            Regions regions;
+            int page = 0;
+
+            do {
+                page += 1;
+                regions = client.getAvailableRegions(page);
+                availableRegions.addAll(regions.getRegions());
+            }
+            while (regions.getMeta().getTotal() > page);
+
+            return availableRegions;
         }
 
     }
 
     public Descriptor<SlaveTemplate> getDescriptor() {
-        return Hudson.getInstance().getDescriptor(getClass());
+        return Jenkins.getInstance().getDescriptor(getClass());
     }
 
     public String createDropletName() {
-        return "jenkins-" + UUID.randomUUID().toString();
+        return DROPLET_PREFIX + UUID.randomUUID().toString();
     }
 
-    public int getSizeId() {
+    public String getSizeId() {
         return sizeId;
     }
 
-    public int getRegionId() {
+    public String getRegionId() {
         return regionId;
     }
 
@@ -271,7 +330,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return parent;
     }
 
-    public int getImageId() {
+    public String getImageId() {
         return imageId;
     }
 

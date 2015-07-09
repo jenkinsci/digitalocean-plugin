@@ -26,12 +26,13 @@ package com.dubture.jenkins.digitalocean;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
-import com.myjeeva.digitalocean.exception.AccessDeniedException;
+import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
-import com.myjeeva.digitalocean.exception.ResourceNotFoundException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
-import com.myjeeva.digitalocean.pojo.SshKey;
+import com.myjeeva.digitalocean.pojo.Droplets;
+import com.myjeeva.digitalocean.pojo.Key;
+import com.myjeeva.digitalocean.pojo.Keys;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -56,9 +57,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static com.google.common.collect.Lists.newArrayList;
 
 /**
  *
@@ -75,16 +79,10 @@ import java.util.logging.Logger;
 public class Cloud extends AbstractCloudImpl {
 
     /**
-     * The DigitalOcean API key
-     * @see "https://cloud.digitalocean.com/api_access"
+     * The DigitalOcean API auth token
+     * @see "https://developers.digitalocean.com/documentation/v2/#authentication"
      */
-    private final String apiKey;
-
-    /**
-     * The DigitalOcean Client ID
-     * @see "https://cloud.digitalocean.com/api_access"
-     */
-    private final String clientId;
+    private final String authToken;
 
     /**
      * The SSH key to be added to the new droplet.
@@ -105,26 +103,26 @@ public class Cloud extends AbstractCloudImpl {
     /**
      * Currently provisioned droplets
      */
-    private static HashMap<Integer, Integer> provisioningDroplets = new HashMap<Integer, Integer>();
+    private static final Map<String, Integer> provisioningDroplets = new HashMap<String, Integer>();
 
     private static final Logger LOGGER = Logger.getLogger(Cloud.class.getName());
 
     /**
      * Constructor parameters are injected via jelly in the jenkins global configuration
-     * @param name
-     * @param apiKey
-     * @param clientId
-     * @param privateKey
-     * @param sshKeyId
-     * @param instanceCapStr
-     * @param templates
+     * @param name A name associated with this cloud configuration
+     * @param authToken A DigitalOcean V2 API authentication token, generated on their website.
+     * @param privateKey An RSA private key in text format
+     * @param sshKeyId An identifier (name) for an SSH key known to DigitalOcean
+     * @param instanceCapStr the maximum number of instances that can be started
+     * @param templates the templates for this cloud
      */
     @DataBoundConstructor
-    public Cloud(String name, String apiKey, String clientId, String privateKey, String sshKeyId, String instanceCapStr, List<? extends SlaveTemplate> templates) {
+    public Cloud(String name, String authToken, String privateKey, String sshKeyId, String instanceCapStr, List<? extends SlaveTemplate> templates) {
         super(name, instanceCapStr);
 
-        this.apiKey = apiKey;
-        this.clientId = clientId;
+        LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[] { name, instanceCapStr});
+
+        this.authToken = authToken;
         this.privateKey = privateKey;
         this.sshKeyId = Integer.parseInt(sshKeyId);
 
@@ -148,21 +146,20 @@ public class Cloud extends AbstractCloudImpl {
 
     /**
      * Count the number of droplets provisioned with the specified Image ID
-     * @param imageId
-     * @return
+     * @param imageId an image slug to identify the slaves to count
+     * @return a count of active or new droplets
      * @throws RequestUnsuccessfulException
-     * @throws AccessDeniedException
-     * @throws ResourceNotFoundException
+     * @throws DigitalOceanException
      */
-    public int countCurrentDropletsSlaves(Integer imageId) throws RequestUnsuccessfulException, AccessDeniedException, ResourceNotFoundException {
+    public int countCurrentDropletsSlaves(String imageId) throws RequestUnsuccessfulException, DigitalOceanException {
+        LOGGER.log(Level.INFO, "countCurrentDropletsSlaves(" + imageId + ")");
 
+        List<Droplet> availableDroplets = getDroplets();
         int count = 0;
-        DigitalOceanClient apiClient = new DigitalOceanClient(clientId, apiKey);
-        List<Droplet> availableDroplets = apiClient.getAvailableDroplets();
 
         for (Droplet droplet : availableDroplets) {
-            if (imageId == null || imageId.equals(droplet.getImageId())) {
-                if ("active".equals(droplet.getStatus()) || "new".equals(droplet.getStatus()) /*droplet.isActive() || droplet.isNew()*/) {
+            if (imageId == null || imageId.equals(droplet.getImage().getSlug())) {
+                if (droplet.isActive() || droplet.isNew()) {
                     count++;
                 }
             }
@@ -172,18 +169,44 @@ public class Cloud extends AbstractCloudImpl {
     }
 
     /**
-     * Adds an imageId to the list of currently provisioned droplets
-     *
-     * @param imageId
-     * @return
+     * Fetches a list of all available droplets. The implementation will fetch all pages and return a single list
+     * of droplets.
+     * @return a list of all available droplets.
+     * @throws DigitalOceanException
+     * @throws RequestUnsuccessfulException
      */
-    private boolean addProvisionedSlave(Integer imageId) {
+    private List<Droplet> getDroplets() throws DigitalOceanException, RequestUnsuccessfulException {
+        LOGGER.log(Level.INFO, "Listing all droplets");
+        DigitalOceanClient apiClient = new DigitalOceanClient(this.authToken);
+        List<Droplet> availableDroplets = newArrayList();
+        Droplets droplets;
+        int page = 1;
+
+        do {
+            droplets = apiClient.getAvailableDroplets(page);
+            availableDroplets.addAll(droplets.getDroplets());
+            page += 1;
+        }
+        while (droplets.getMeta().getTotal() > page);
+
+        return availableDroplets;
+    }
+
+    /**
+     * Adds an image to the list of currently provisioned droplets
+     *
+     * @param imageId the image slug of the provisioned slave
+     * @return whether the slave can be / has been provisioned (not sure which TBH)
+     */
+    private boolean addProvisionedSlave(String imageId) {
+
+        LOGGER.log(Level.INFO, "Adding provisioned slave " + imageId);
 
         int estimatedTotalSlaves;
-        int estimatedAmiSlaves;
+        int estimatedDropletSlaves;
         try {
             estimatedTotalSlaves = countCurrentDropletsSlaves(null);
-            estimatedAmiSlaves = countCurrentDropletsSlaves(imageId);
+            estimatedDropletSlaves = countCurrentDropletsSlaves(imageId);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, e.getMessage(), e);
             return false;
@@ -192,8 +215,8 @@ public class Cloud extends AbstractCloudImpl {
         synchronized (provisioningDroplets) {
             int currentProvisioning;
 
-            for (int amiCount : provisioningDroplets.values()) {
-                estimatedTotalSlaves += amiCount;
+            for (int dropletCount : provisioningDroplets.values()) {
+                estimatedTotalSlaves += dropletCount;
             }
             try {
                 currentProvisioning = provisioningDroplets.get(imageId);
@@ -202,15 +225,15 @@ public class Cloud extends AbstractCloudImpl {
                 currentProvisioning = 0;
             }
 
-            estimatedAmiSlaves += currentProvisioning;
+            estimatedDropletSlaves += currentProvisioning;
 
             if(estimatedTotalSlaves >= getInstanceCap()) {
                 LOGGER.log(Level.INFO, "Total instance cap of " + getInstanceCap() + " reached, not provisioning.");
                 return false; // maxed out
             }
 
-            if (estimatedAmiSlaves >= getInstanceCap()) {
-                LOGGER.log(Level.INFO, "AMI Instance cap of " + getInstanceCap() + " reached for imageId " + imageId + ", not provisioning.");
+            if (estimatedDropletSlaves >= getInstanceCap()) {
+                LOGGER.log(Level.INFO, "Droplet Instance cap of " + getInstanceCap() + " reached for imageId " + imageId + ", not provisioning.");
                 return false; // maxed out
             }
 
@@ -220,7 +243,7 @@ public class Cloud extends AbstractCloudImpl {
                             + String.valueOf(estimatedTotalSlaves) + "; " +
                             "Estimated number of slaves for imageId "
                             + imageId + ": "
-                            + String.valueOf(estimatedAmiSlaves)
+                            + String.valueOf(estimatedDropletSlaves)
             );
 
             provisioningDroplets.put(imageId, currentProvisioning + 1);
@@ -246,7 +269,7 @@ public class Cloud extends AbstractCloudImpl {
         }
 
         List<NodeProvisioner.PlannedNode> nodes = new ArrayList<NodeProvisioner.PlannedNode>();
-        final DigitalOceanClient apiClient = new DigitalOceanClient(clientId, apiKey);
+        final DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
         final SlaveTemplate template = getTemplate(label);
 
         try {
@@ -266,7 +289,7 @@ public class Cloud extends AbstractCloudImpl {
                             slave.toComputer().connect(false).get();
                             return slave;
                         } finally {
-                            decrementDropletSlaveProvision(template.imageId);
+                            decrementDropletSlaveProvision(template.getImageId());
                         }
                     }
                 }), template.getNumExecutors()));
@@ -285,9 +308,10 @@ public class Cloud extends AbstractCloudImpl {
     /**
      * Decrement the count for the currently provisioned droplets with the specified Image ID.
      *
-     * @param imageId
+     * @param imageId the image slug of the de-provisioned slave
      */
-    private void decrementDropletSlaveProvision(int imageId) {
+    private void decrementDropletSlaveProvision(String imageId) {
+        LOGGER.log(Level.INFO, "Decrementing provision slave " + imageId);
         synchronized (provisioningDroplets) {
             int currentProvisioning;
             try {
@@ -305,6 +329,7 @@ public class Cloud extends AbstractCloudImpl {
     }
 
     public List<SlaveTemplate> getTemplates() {
+        LOGGER.log(Level.INFO, "getTemplates");
         return Collections.unmodifiableList(templates);
     }
 
@@ -324,12 +349,8 @@ public class Cloud extends AbstractCloudImpl {
         return name;
     }
 
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public String getClientId() {
-        return clientId;
+    public String getAuthToken() {
+        return authToken;
     }
 
     public String getPrivateKey() {
@@ -341,7 +362,7 @@ public class Cloud extends AbstractCloudImpl {
     }
 
     public DigitalOceanClient getApiClient() {
-        return new DigitalOceanClient(clientId, apiKey);
+        return new DigitalOceanClient(authToken);
     }
 
     @Extension
@@ -355,10 +376,10 @@ public class Cloud extends AbstractCloudImpl {
             return "Digital Ocean";
         }
 
-        public FormValidation doTestConnection(@QueryParameter String apiKey, @QueryParameter String clientId) throws IOException, ServletException {
+        public FormValidation doTestConnection(@QueryParameter String authToken) throws IOException, ServletException {
             try {
-                DigitalOceanClient client = new DigitalOceanClient(clientId, apiKey);
-                client.getAvailableDroplets();
+                DigitalOceanClient client = new DigitalOceanClient(authToken);
+                client.getAvailableDroplets(1);
                 return FormValidation.ok("Digitalocean API request succeeded.");
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to connect to DigitalOcean API", e);
@@ -374,17 +395,9 @@ public class Cloud extends AbstractCloudImpl {
             }
         }
 
-        public FormValidation doCheckApiKey(@QueryParameter String apiKey) {
-            if (Strings.isNullOrEmpty(apiKey)) {
-                return FormValidation.error("API key must be set");
-            } else {
-                return FormValidation.ok();
-            }
-        }
-
-        public FormValidation doCheckClientId(@QueryParameter String clientId) {
-            if (Strings.isNullOrEmpty(clientId)) {
-                return FormValidation.error("Client ID must be set");
+        public FormValidation doCheckAuthToken(@QueryParameter String authToken) {
+            if (Strings.isNullOrEmpty(authToken)) {
+                return FormValidation.error("Auth token must be set");
             } else {
                 return FormValidation.ok();
             }
@@ -407,19 +420,35 @@ public class Cloud extends AbstractCloudImpl {
             return FormValidation.ok();
         }
 
+        public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authToken) throws Exception {
 
-        public ListBoxModel doFillSshKeyIdItems(@QueryParameter String apiKey, @QueryParameter String clientId) throws Exception {
-
-            DigitalOceanClient client = new DigitalOceanClient(clientId, apiKey);
-
-            List<SshKey> availableSizes = client.getAvailableSshKeys();
+            List<Key> availableSizes = getAvailableKeys(authToken);
             ListBoxModel model = new ListBoxModel();
 
-            for (SshKey image : availableSizes) {
+            for (Key image : availableSizes) {
                 model.add(image.getName(), image.getId().toString());
             }
 
             return model;
         }
+
+        private List<Key> getAvailableKeys(String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
+
+            DigitalOceanClient client = new DigitalOceanClient(authToken);
+            List<Key> availableKeys = new ArrayList<Key>();
+
+            Keys keys;
+            int page = 1;
+
+            do {
+                keys = client.getAvailableKeys(page);
+                availableKeys.addAll(keys.getKeys());
+                page += 1;
+            }
+            while (keys.getMeta().getTotal() > page);
+
+            return availableKeys;
+        }
     }
+
 }

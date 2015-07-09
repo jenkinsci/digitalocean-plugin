@@ -30,7 +30,7 @@ import hudson.util.TimeUnit2;
 
 /**
  *
- * The {@link com.dubture.jenkins.digitalocean.RetentionStrategy} is mainly used to determing
+ * The {@link com.dubture.jenkins.digitalocean.RetentionStrategy} is mainly used to determine
  * when an idle {@link com.myjeeva.digitalocean.pojo.Droplet} can be destroyed.
  *
  * @author robert.gruendler@dubture.com

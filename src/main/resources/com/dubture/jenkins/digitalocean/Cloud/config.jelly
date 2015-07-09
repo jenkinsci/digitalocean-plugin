@@ -28,11 +28,7 @@
         <f:textbox/>
     </f:entry>
 
-    <f:entry title="API Key" field="apiKey">
-        <f:password />
-    </f:entry>
-
-    <f:entry title="Client ID" field="clientId">
+    <f:entry title="Auth Token" field="authToken">
         <f:password />
     </f:entry>
 
@@ -48,7 +44,7 @@
         <f:textbox default="5"/>
     </f:entry>
 
-    <f:validateButton title="Test connection" progress="Testing API connectivity..." method="testConnection" with="apiKey,clientId"/>
+    <f:validateButton title="Test connection" progress="Testing API connectivity..." method="testConnection" with="authToken"/>
 
     <f:entry title="Droplets" description="List of droplets which can be launched as slaves">
         <f:repeatable field="templates">
