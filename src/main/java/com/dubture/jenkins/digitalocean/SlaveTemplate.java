@@ -24,17 +24,13 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import com.myjeeva.digitalocean.pojo.Image;
-import com.myjeeva.digitalocean.pojo.Images;
 import com.myjeeva.digitalocean.pojo.Key;
 import com.myjeeva.digitalocean.pojo.Region;
-import com.myjeeva.digitalocean.pojo.Regions;
 import com.myjeeva.digitalocean.pojo.Size;
-import com.myjeeva.digitalocean.pojo.Sizes;
 import hudson.Extension;
 import hudson.RelativePath;
 import hudson.Util;
@@ -52,10 +48,11 @@ import org.kohsuke.stapler.QueryParameter;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -211,65 +208,31 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
         public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
 
-            List<Size> availableSizes = getAvailableSizes(authToken);
+            List<Size> availableSizes = Utils.getAvailableSizes(authToken);
             ListBoxModel model = new ListBoxModel();
 
             for (Size size : availableSizes) {
-                model.add(size.getSlug());
+                model.add(Utils.buildSizeLabel(size), size.getSlug());
             }
 
             return model;
-        }
-
-        private static List<Size> getAvailableSizes(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
-            DigitalOceanClient client = new DigitalOceanClient(authToken);
-
-            List<Size> availableSizes = new ArrayList<Size>();
-            int page = 0;
-            Sizes sizes;
-
-            do {
-                page += 1;
-                sizes = client.getAvailableSizes(page);
-                availableSizes.addAll(sizes.getSizes());
-            }
-            while (sizes.getMeta().getTotal() > page);
-
-            return availableSizes;
         }
 
         public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
 
-            List<Image> availableSizes = getAvailableImages(authToken);
+            SortedMap<String, Image> availableSizes = Utils.getAvailableImages(authToken);
             ListBoxModel model = new ListBoxModel();
 
-            for (Image image : availableSizes) {
-                model.add(image.getDistribution() + " " + image.getName(), image.getSlug());
+            for (Map.Entry<String, Image> entry : availableSizes.entrySet()) {
+                model.add(entry.getKey(), entry.getValue().getSlug());
             }
 
             return model;
         }
 
-        private static List<Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
-            DigitalOceanClient client = new DigitalOceanClient(authToken);
-
-            List<Image> availableSizes = new ArrayList<Image>();
-            Images images;
-            int page = 0;
-
-            do {
-                page += 1;
-                images = client.getAvailableImages(page);
-                availableSizes.addAll(images.getImages());
-            }
-            while (images.getMeta().getTotal() > page);
-
-            return availableSizes;
-        }
-
         public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
 
-            List<Region> availableSizes = getAvailableRegions(authToken);
+            List<Region> availableSizes = Utils.getAvailableRegions(authToken);
             ListBoxModel model = new ListBoxModel();
 
             for (Region region : availableSizes) {
@@ -278,24 +241,6 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
             return model;
         }
-
-        private static List<Region> getAvailableRegions(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
-            DigitalOceanClient client = new DigitalOceanClient(authToken);
-
-            List<Region> availableRegions = new ArrayList<Region>();
-            Regions regions;
-            int page = 0;
-
-            do {
-                page += 1;
-                regions = client.getAvailableRegions(page);
-                availableRegions.addAll(regions.getRegions());
-            }
-            while (regions.getMeta().getTotal() > page);
-
-            return availableRegions;
-        }
-
     }
 
     public Descriptor<SlaveTemplate> getDescriptor() {
