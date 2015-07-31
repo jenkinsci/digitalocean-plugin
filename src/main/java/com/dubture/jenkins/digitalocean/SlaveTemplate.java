@@ -60,12 +60,11 @@ import java.util.logging.Logger;
 import static com.google.common.collect.Lists.newArrayList;
 
 /**
- * A {@link com.dubture.jenkins.digitalocean.SlaveTemplate} represents the configuration values for creating a
- * new slave via a DigitalOcean droplet.
+ * A {@link SlaveTemplate} represents the configuration values for creating a new slave via a DigitalOcean droplet.
  *
- * Holds things like Image ID, sizeId and region used for the specific droplet.
+ * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * The {@link SlaveTemplate#provision(com.myjeeva.digitalocean.impl.DigitalOceanClient, String, String, Integer, hudson.util.StreamTaskListener)} method
+ * <p>The {@link SlaveTemplate#provision(DigitalOceanClient, String, String, Integer, hudson.util.StreamTaskListener)} method
  * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
@@ -77,6 +76,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     private final String labelString;
 
     private final int idleTerminationInMinutes;
+
+    /**
+     * The maximum number of executors that this slave will run.
+     */
+    private final int numExecutors;
 
     private final String labels;
 
@@ -108,16 +112,18 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param sizeId the image size e.g. "512mb" or "1gb"
      * @param regionId the region e.g. "nyc1"
      * @param idleTerminationInMinutes how long to wait before destroying a slave
+     * @param numExecutors the number of executors that this slave supports
      * @param labelString the label for this slave
      */
     @DataBoundConstructor
-    public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes, String labelString) {
+    public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes, String numExecutors, String labelString) {
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}", new Object[] { imageId, sizeId, regionId});
         this.imageId = imageId;
         this.sizeId = sizeId;
         this.regionId = regionId;
 
         this.idleTerminationInMinutes = Integer.parseInt(idleTerminationInMinutes);
+        this.numExecutors = Integer.parseInt(numExecutors);
         this.labelString = labelString;
         this.labels = Util.fixNull(labelString);
 
@@ -169,7 +175,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     /**
-     * Create a new {@link com.dubture.jenkins.digitalocean.Slave} from the given {@link com.myjeeva.digitalocean.pojo.Droplet}
+     * Create a new {@link Slave} from the given {@link Droplet}
      * @param droplet the droplet being created
      * @param privateKey the RSA private key being used
      * @return the provisioned {@link Slave}
@@ -186,7 +192,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 privateKey,
                 "/jenkins",
                 "root",
-                1,
+                numExecutors,
                 idleTerminationInMinutes,
                 Node.Mode.NORMAL,
                 labels,
@@ -282,7 +288,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     public int getNumExecutors() {
-        return 1;
+        return numExecutors;
     }
 
     public int getIdleTerminationInMinutes() {
