@@ -78,6 +78,8 @@ import static com.google.common.collect.Lists.newArrayList;
  */
 public class Cloud extends AbstractCloudImpl {
 
+    public static final String SLAVE_NAME_REGEX = "^jenkins-\\p{XDigit}{8}-\\p{XDigit}{4}-\\p{XDigit}{4}-\\p{XDigit}{4}-\\p{XDigit}{12}$";
+
     /**
      * The DigitalOcean API auth token
      * @see "https://developers.digitalocean.com/documentation/v2/#authentication"
@@ -158,8 +160,8 @@ public class Cloud extends AbstractCloudImpl {
         int count = 0;
 
         for (Droplet droplet : availableDroplets) {
-            if (imageId == null || imageId.equals(droplet.getImage().getSlug())) {
-                if (droplet.isActive() || droplet.isNew()) {
+            if (imageId == null || imageId.equals(droplet.getImage().getId().toString())) {
+                if ((droplet.isActive() || droplet.isNew()) && droplet.getName().matches(SLAVE_NAME_REGEX)) {
                     count++;
                 }
             }
@@ -238,12 +240,11 @@ public class Cloud extends AbstractCloudImpl {
             }
 
             LOGGER.log(Level.INFO,
-                    "Provisioning for AMI " + imageId + "; " +
+                    "Provisioning for " + imageId + "; " +
                             "Estimated number of total slaves: "
-                            + String.valueOf(estimatedTotalSlaves) + "; " +
+                            + estimatedTotalSlaves + "; " +
                             "Estimated number of slaves for imageId "
-                            + imageId + ": "
-                            + String.valueOf(estimatedDropletSlaves)
+                            + imageId + ": " + estimatedDropletSlaves
             );
 
             provisioningDroplets.put(imageId, currentProvisioning + 1);

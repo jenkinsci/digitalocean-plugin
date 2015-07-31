@@ -155,7 +155,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setName(dropletName);
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
-            droplet.setImage(new Image(imageId));
+            droplet.setImage(new Image(Integer.parseInt(imageId)));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
 
             logger.println("Creating slave with new droplet " + dropletName);
@@ -224,7 +224,9 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             ListBoxModel model = new ListBoxModel();
 
             for (Map.Entry<String, Image> entry : availableSizes.entrySet()) {
-                model.add(entry.getKey(), entry.getValue().getSlug());
+                // Reference image IDs instead of slugs so that we can build
+                // images based upon snapshots as well as standard images
+                model.add(entry.getKey(), entry.getValue().getId().toString());
             }
 
             return model;
