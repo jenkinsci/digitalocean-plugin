@@ -30,9 +30,7 @@ import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
-import com.myjeeva.digitalocean.pojo.Droplets;
 import com.myjeeva.digitalocean.pojo.Key;
-import com.myjeeva.digitalocean.pojo.Keys;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -90,7 +88,6 @@ public class Cloud extends AbstractCloudImpl {
      * The SSH key to be added to the new droplet.
      */
     private final Integer sshKeyId;
-
 
     /**
      * The SSH private key associated with the selected SSH key
@@ -156,7 +153,7 @@ public class Cloud extends AbstractCloudImpl {
     public int countCurrentDropletsSlaves(String imageId) throws RequestUnsuccessfulException, DigitalOceanException {
         LOGGER.log(Level.INFO, "countCurrentDropletsSlaves(" + imageId + ")");
 
-        List<Droplet> availableDroplets = getDroplets();
+        List<Droplet> availableDroplets = Utils.getDroplets(this.authToken);
         int count = 0;
 
         for (Droplet droplet : availableDroplets) {
@@ -168,30 +165,6 @@ public class Cloud extends AbstractCloudImpl {
         }
 
         return count;
-    }
-
-    /**
-     * Fetches a list of all available droplets. The implementation will fetch all pages and return a single list
-     * of droplets.
-     * @return a list of all available droplets.
-     * @throws DigitalOceanException
-     * @throws RequestUnsuccessfulException
-     */
-    private List<Droplet> getDroplets() throws DigitalOceanException, RequestUnsuccessfulException {
-        LOGGER.log(Level.INFO, "Listing all droplets");
-        DigitalOceanClient apiClient = new DigitalOceanClient(this.authToken);
-        List<Droplet> availableDroplets = newArrayList();
-        Droplets droplets;
-        int page = 1;
-
-        do {
-            droplets = apiClient.getAvailableDroplets(page);
-            availableDroplets.addAll(droplets.getDroplets());
-            page += 1;
-        }
-        while (droplets.getMeta().getTotal() > page);
-
-        return availableDroplets;
     }
 
     /**
@@ -239,13 +212,9 @@ public class Cloud extends AbstractCloudImpl {
                 return false; // maxed out
             }
 
-            LOGGER.log(Level.INFO,
-                    "Provisioning for " + imageId + "; " +
-                            "Estimated number of total slaves: "
-                            + estimatedTotalSlaves + "; " +
-                            "Estimated number of slaves for imageId "
-                            + imageId + ": " + estimatedDropletSlaves
-            );
+            LOGGER.log(Level.INFO, "Provisioning for {0}; Estimated number of total slaves: {1}; " +
+                "Estimated number of slaves for imageId {0}: {2}",
+                new Object[] {imageId, estimatedTotalSlaves, estimatedDropletSlaves});
 
             provisioningDroplets.put(imageId, currentProvisioning + 1);
             return true;
@@ -423,7 +392,7 @@ public class Cloud extends AbstractCloudImpl {
 
         public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authToken) throws Exception {
 
-            List<Key> availableSizes = getAvailableKeys(authToken);
+            List<Key> availableSizes = Utils.getAvailableKeys(authToken);
             ListBoxModel model = new ListBoxModel();
 
             for (Key image : availableSizes) {
@@ -432,24 +401,5 @@ public class Cloud extends AbstractCloudImpl {
 
             return model;
         }
-
-        private List<Key> getAvailableKeys(String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
-
-            DigitalOceanClient client = new DigitalOceanClient(authToken);
-            List<Key> availableKeys = new ArrayList<Key>();
-
-            Keys keys;
-            int page = 1;
-
-            do {
-                keys = client.getAvailableKeys(page);
-                availableKeys.addAll(keys.getKeys());
-                page += 1;
-            }
-            while (keys.getMeta().getTotal() > page);
-
-            return availableKeys;
-        }
     }
-
 }

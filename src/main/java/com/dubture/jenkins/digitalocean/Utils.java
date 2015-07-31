@@ -3,8 +3,12 @@ package com.dubture.jenkins.digitalocean;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
+import com.myjeeva.digitalocean.pojo.Droplet;
+import com.myjeeva.digitalocean.pojo.Droplets;
 import com.myjeeva.digitalocean.pojo.Image;
 import com.myjeeva.digitalocean.pojo.Images;
+import com.myjeeva.digitalocean.pojo.Key;
+import com.myjeeva.digitalocean.pojo.Keys;
 import com.myjeeva.digitalocean.pojo.Region;
 import com.myjeeva.digitalocean.pojo.Regions;
 import com.myjeeva.digitalocean.pojo.Size;
@@ -16,6 +20,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import static com.google.common.collect.Lists.newArrayList;
 
 /**
  * Various utility methods that make it easier to obtain full lists of properties from Digital Ocean. Some API
@@ -26,6 +34,8 @@ import java.util.TreeMap;
  */
 public class Utils {
 
+    private static final Logger LOGGER = Logger.getLogger(Utils.class.getName());
+
     /**
      * Fetches all available droplet sizes.
      * @param authToken the API authorisation token to use
@@ -33,7 +43,7 @@ public class Utils {
      * @throws DigitalOceanException
      * @throws RequestUnsuccessfulException
      */
-    public static List<Size> getAvailableSizes(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+    static List<Size> getAvailableSizes(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
         List<Size> availableSizes = new ArrayList<Size>();
@@ -66,7 +76,7 @@ public class Utils {
      * @throws DigitalOceanException
      * @throws RequestUnsuccessfulException
      */
-    public static SortedMap<String,Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+    static SortedMap<String,Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
         SortedMap<String,Image> availableImages = new TreeMap<String,Image>();
@@ -92,7 +102,7 @@ public class Utils {
      * @throws DigitalOceanException
      * @throws RequestUnsuccessfulException
      */
-    public static List<Region> getAvailableRegions(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+    static List<Region> getAvailableRegions(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
         List<Region> availableRegions = new ArrayList<Region>();
@@ -129,7 +139,7 @@ public class Utils {
      * @param size the size to use
      * @return a label with memory and disk size
      */
-    public static String buildSizeLabel(final Size size) {
+    static String buildSizeLabel(final Size size) {
         /* It so happens that what we build here is the same as size.getSlug(),
          * but I don't want to rely on that in case it changes.
          */
@@ -146,5 +156,47 @@ public class Utils {
                 memoryUnits,
                 size.getDiskSize(),
                 "gb");
+    }
+
+    static List<Key> getAvailableKeys(String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
+
+        DigitalOceanClient client = new DigitalOceanClient(authToken);
+        List<Key> availableKeys = new ArrayList<Key>();
+
+        Keys keys;
+        int page = 1;
+
+        do {
+            keys = client.getAvailableKeys(page);
+            availableKeys.addAll(keys.getKeys());
+            page += 1;
+        }
+        while (keys.getMeta().getTotal() > page);
+
+        return availableKeys;
+    }
+
+    /**
+     * Fetches a list of all available droplets. The implementation will fetch all pages and return a single list
+     * of droplets.
+     * @return a list of all available droplets.
+     * @throws DigitalOceanException
+     * @throws RequestUnsuccessfulException
+     */
+    static List<Droplet> getDroplets(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+        LOGGER.log(Level.INFO, "Listing all droplets");
+        DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
+        List<Droplet> availableDroplets = newArrayList();
+        Droplets droplets;
+        int page = 1;
+
+        do {
+            droplets = apiClient.getAvailableDroplets(page);
+            availableDroplets.addAll(droplets.getDroplets());
+            page += 1;
+        }
+        while (droplets.getMeta().getTotal() > page);
+
+        return availableDroplets;
     }
 }
