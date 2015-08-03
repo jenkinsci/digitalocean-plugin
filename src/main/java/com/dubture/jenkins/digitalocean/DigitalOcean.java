@@ -32,9 +32,13 @@ import static com.google.common.collect.Lists.newArrayList;
  *
  * @author Rory Hunter (rory.hunter@blackpepper.co.uk)
  */
-public class Utils {
+public final class DigitalOcean {
 
-    private static final Logger LOGGER = Logger.getLogger(Utils.class.getName());
+    private DigitalOcean() {
+        throw new AssertionError();
+    }
+
+    private static final Logger LOGGER = Logger.getLogger(DigitalOcean.class.getName());
 
     /**
      * Fetches all available droplet sizes.

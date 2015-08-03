@@ -153,7 +153,7 @@ public class Cloud extends AbstractCloudImpl {
     public int countCurrentDropletsSlaves(String imageId) throws RequestUnsuccessfulException, DigitalOceanException {
         LOGGER.log(Level.INFO, "countCurrentDropletsSlaves(" + imageId + ")");
 
-        List<Droplet> availableDroplets = Utils.getDroplets(this.authToken);
+        List<Droplet> availableDroplets = DigitalOcean.getDroplets(this.authToken);
         int count = 0;
 
         for (Droplet droplet : availableDroplets) {
@@ -392,7 +392,7 @@ public class Cloud extends AbstractCloudImpl {
 
         public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authToken) throws Exception {
 
-            List<Key> availableSizes = Utils.getAvailableKeys(authToken);
+            List<Key> availableSizes = DigitalOcean.getAvailableKeys(authToken);
             ListBoxModel model = new ListBoxModel();
 
             for (Key image : availableSizes) {
