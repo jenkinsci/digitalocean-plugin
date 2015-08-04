@@ -44,26 +44,25 @@ import java.io.IOException;
 import java.io.PrintStream;
 
 /**
+ * The {@link ComputerLauncher} is responsible for:
  *
- * The {@link com.dubture.jenkins.digitalocean.ComputerLauncher} is responsible for
- *
- * - connecting to a slave via SSH
- * - installing Java and the Jenkins agent o the slave
+ * <ul>
+ *   <li>Connecting to a slave via SSH</li>
+ *   <li>Installing Java and the Jenkins agent to the slave</li>
+ * </ul>
  *
  * @author robert.gruendler@dubture.com
  */
 public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
-    private final int FAILED=-1;
-
-    private final int SAMEUSER=0;
-
-    private final int RECONNECT=-2;
+    private enum BootstrapResult {
+        FAILED,
+        SAMEUSER,
+        RECONNECT
+    }
 
     /**
      * Connects to the given {@link Computer} via SSH and installs Java/Jenkins agent if necessary.
-     * @param _computer
-     * @param listener
      */
     @Override
     public void launch(SlaveComputer _computer, TaskListener listener) {
@@ -78,54 +77,54 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
         try {
             bootstrapConn = connectToSsh(computer, logger);
-            int bootstrapResult = bootstrap(bootstrapConn, computer, logger);
-            if (bootstrapResult == FAILED) {
-                logger.println("bootstrapresult failed");
-                listener.fatalError("bootstrapresult failed");
-                return; // bootstrap closed for us.
-            }
-            else if (bootstrapResult == SAMEUSER) {
-                cleanupConn = bootstrapConn; // take over the connection
-                logger.println("take over connection");
-            }
-            else {
-                // connect fresh as ROOT
-                logger.println("connect fresh as root");
-                cleanupConn = connectToSsh(computer, logger);
 
-                if (!cleanupConn.authenticateWithPublicKey(computer.getRemoteAdmin(), computer.getNode().getPrivateKey().toCharArray(), "")) {
-                    logger.println("Authentication failed");
-                    return; // failed to connect as root.
-                }
+            switch (bootstrap(bootstrapConn, computer, logger)) {
+                case FAILED:
+                    logger.println("bootstrap failed");
+                    listener.fatalError("bootstrap failed");
+                    return; // bootstrap closed for us.
+
+                case SAMEUSER:
+                    cleanupConn = bootstrapConn; // take over the connection
+                    logger.println("take over connection");
+
+                case RECONNECT:// connect fresh as ROOT
+                    logger.println("connect fresh as root");
+                    cleanupConn = connectToSsh(computer, logger);
+
+                    if (!cleanupConn.authenticateWithPublicKey(computer.getRemoteAdmin(), computer.getNode().getPrivateKey().toCharArray(), "")) {
+                        logger.println("Authentication failed");
+                        return; // failed to connect as root.
+                    }
             }
             conn = cleanupConn;
 
             SCPClient scp = conn.createSCPClient();
-            String initScript = computer.getNode().initScript;
+            String initScript = computer.getNode().getInitScript();
 
             if(initScript != null && initScript.trim().length() > 0 && conn.exec("test -e ~/.hudson-run-init", logger) != 0) {
                 logger.println("Executing init script");
                 scp.put(initScript.getBytes("UTF-8"),"init.sh","/tmp","0700");
-                Session sess = conn.openSession();
-                sess.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-                sess.execCommand(buildUpCommand(computer, "/tmp/init.sh"));
+                Session session = conn.openSession();
+                session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
+                session.execCommand(buildUpCommand(computer, "/tmp/init.sh"));
 
-                sess.getStdin().close();    // nothing to write here
-                sess.getStderr().close();   // we are not supposed to get anything from stderr
-                IOUtils.copy(sess.getStdout(), logger);
+                session.getStdin().close();    // nothing to write here
+                session.getStderr().close();   // we are not supposed to get anything from stderr
+                IOUtils.copy(session.getStdout(), logger);
 
-                int exitStatus = waitCompletion(sess);
+                int exitStatus = waitCompletion(session);
                 if (exitStatus != 0) {
                     logger.println("init script failed: exit code=" + exitStatus);
                     return;
                 }
-                sess.close();
+                session.close();
 
                 // Needs a tty to run sudo.
-                sess = conn.openSession();
-                sess.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-                sess.execCommand(buildUpCommand(computer, "touch ~/.hudson-run-init"));
-                sess.close();
+                session = conn.openSession();
+                session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
+                session.execCommand(buildUpCommand(computer, "touch ~/.hudson-run-init"));
+                session.close();
             }
 
             logger.println("Verifying that java exists");
@@ -166,12 +165,12 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     }
 
 
-    private int bootstrap(Connection bootstrapConn, Computer computer, PrintStream logger) throws IOException, InterruptedException {
+    private BootstrapResult bootstrap(Connection bootstrapConn, Computer computer, PrintStream logger) throws IOException, InterruptedException {
         logger.println("bootstrap()" );
         boolean closeBootstrap = true;
 
         if (bootstrapConn.isAuthenticationComplete()) {
-            return SAMEUSER;
+            return BootstrapResult.SAMEUSER;
         }
 
         try {
@@ -190,13 +189,13 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
             }
             if (!isAuthenticated) {
                 logger.println("Authentication failed");
-                return FAILED;
+                return BootstrapResult.FAILED;
             }
             closeBootstrap = false;
-            return SAMEUSER;
+            return BootstrapResult.SAMEUSER;
         } catch (Exception e) {
             e.printStackTrace(logger);
-            return FAILED;
+            return BootstrapResult.FAILED;
         } finally {
             if (closeBootstrap)
                 bootstrapConn.close();

@@ -105,6 +105,12 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      */
     private final String userData;
 
+    /**
+     * Setup script for preparing the new slave. Differs from userData in that Jenkins runs this script,
+     * as opposed to the DigitalOcean provisioning process.
+     */
+    private final String initScript;
+
     private transient Set<LabelAtom> labelSet;
 
     protected transient Cloud parent;
@@ -121,10 +127,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param numExecutors the number of executors that this slave supports
      * @param labelString the label for this slave
      * @param userData user data for DigitalOcean to apply when building the slave
+     * @param initScript setup script to configure the slave
      */
     @DataBoundConstructor
     public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes,
-            String numExecutors, String labelString, String userData) {
+            String numExecutors, String labelString, String userData, String initScript) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
             new Object[] { imageId, sizeId, regionId});
@@ -139,6 +146,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.labels = Util.fixNull(labelString);
 
         this.userData = userData;
+        this.initScript = initScript;
 
         readResolve();
     }
@@ -173,7 +181,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setImage(new Image(Integer.parseInt(imageId)));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
 
-            if (!(userData == null || userData.isEmpty())) {
+            if (!(userData == null || userData.trim().isEmpty())) {
                 droplet.setUserData(userData);
             }
 
@@ -213,7 +221,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 new ComputerLauncher(),
                 new RetentionStrategy(),
                 Collections.<NodeProperty<?>>emptyList(),
-                "",
+                Util.fixNull(initScript),
                 ""
         );
     }
@@ -312,6 +320,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public String getUserData() {
         return userData;
+    }
+
+    public String getInitScript() {
+        return initScript;
     }
 
     private static int tryParseInteger(final String integerString, final int defaultValue) {

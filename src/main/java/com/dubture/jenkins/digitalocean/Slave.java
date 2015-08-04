@@ -163,4 +163,8 @@ public class Slave extends AbstractCloudSlave {
     public String getUserData() {
         return userData;
     }
+
+    public String getInitScript() {
+        return initScript;
+    }
 }

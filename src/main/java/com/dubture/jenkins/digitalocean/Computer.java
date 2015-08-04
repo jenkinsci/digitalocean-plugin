@@ -36,11 +36,9 @@ import java.util.logging.Logger;
 
 /**
  *
- * A {@link hudson.model.Computer} implementation for DigitalOcean.
+ * A {@link hudson.model.Computer} implementation for DigitalOcean. Holds a handle to an {@link Slave}.
  *
- * Holds a handle to an {@link com.dubture.jenkins.digitalocean.Slave}
- *
- * Mainly responsible for updating the {@link com.myjeeva.digitalocean.pojo.Droplet} information via {@link Computer#updateInstanceDescription()}
+ * <p>Mainly responsible for updating the {@link Droplet} information via {@link Computer#updateInstanceDescription()}
  *
  * @author robert.gruendler@dubture.com
  */
