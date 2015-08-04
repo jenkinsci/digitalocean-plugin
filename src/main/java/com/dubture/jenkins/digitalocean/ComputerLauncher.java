@@ -32,6 +32,7 @@ import com.myjeeva.digitalocean.pojo.Network;
 import com.trilead.ssh2.Connection;
 import com.trilead.ssh2.SCPClient;
 import com.trilead.ssh2.Session;
+import hudson.Util;
 import hudson.model.TaskListener;
 import hudson.remoting.Channel;
 import hudson.slaves.SlaveComputer;
@@ -60,7 +61,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     private final int RECONNECT=-2;
 
     /**
-     * Connects to the given {@link com.dubture.jenkins.digitalocean.Computer} via SSH and installs Java/Jenkins agent if necessary.
+     * Connects to the given {@link Computer} via SSH and installs Java/Jenkins agent if necessary.
      * @param _computer
      * @param listener
      */
@@ -114,8 +115,8 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                 IOUtils.copy(sess.getStdout(), logger);
 
                 int exitStatus = waitCompletion(sess);
-                if (exitStatus!=0) {
-                    logger.println("init script failed: exit code="+exitStatus);
+                if (exitStatus != 0) {
+                    logger.println("init script failed: exit code=" + exitStatus);
                     return;
                 }
                 sess.close();
@@ -141,12 +142,12 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
             logger.println("Copying slave.jar");
             scp.put(Jenkins.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar","/tmp");
-            String jvmopts = computer.getNode().jvmopts;
-            String launchString = "java " + (jvmopts != null ? jvmopts : "") + " -jar /tmp/slave.jar";
+            String jvmOpts = Util.fixNull(computer.getNode().jvmOpts);
+            String launchString = "java " + jvmOpts + " -jar /tmp/slave.jar";
             logger.println("Launching slave agent: " + launchString);
             final Session sess = conn.openSession();
             sess.execCommand(launchString);
-            computer.setChannel(sess.getStdout(),sess.getStdin(),logger,new Channel.Listener() {
+            computer.setChannel(sess.getStdout(), sess.getStdin(), logger, new Channel.Listener() {
                 @Override
                 public void onClosed(Channel channel, IOException cause) {
                     sess.close();

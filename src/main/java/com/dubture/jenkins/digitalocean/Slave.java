@@ -63,41 +63,31 @@ public class Slave extends AbstractCloudSlave {
 
     private final String privateKey;
 
+    private final String userData;
+
     private String remoteAdmin;
 
-    public final String jvmopts;
+    public final String jvmOpts;
 
     /**
-     *
-     * {@link com.dubture.jenkins.digitalocean.Slave}s are created by {@link com.dubture.jenkins.digitalocean.SlaveTemplate}s
-     *
-     * @param name
-     * @param nodeDescription
-     * @param dropletId
-     * @param privateKey
-     * @param remoteFS
-     * @param remoteAdmin
-     * @param numExecutors
-     * @param idleTerminationTime
-     * @param mode
-     * @param labelString
-     * @param launcher
-     * @param retentionStrategy
-     * @param nodeProperties
-     * @param initScript
-     * @param jvmopts
-     * @throws Descriptor.FormException
-     * @throws IOException
+     * {@link Slave}s are created by {@link SlaveTemplate}s
      */
-    public Slave(String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey, String remoteFS, String remoteAdmin, int numExecutors, int idleTerminationTime, Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy, List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmopts) throws Descriptor.FormException, IOException {
+    public Slave(String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
+                 String remoteFS, String remoteAdmin, int numExecutors, int idleTerminationTime, String userData,
+                 Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
+                 List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmOpts)
+            throws Descriptor.FormException, IOException {
+
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy, nodeProperties);
+
         this.cloudName = cloudName;
         this.dropletId = dropletId;
         this.privateKey = privateKey;
         this.remoteAdmin = remoteAdmin;
         this.idleTerminationTime = idleTerminationTime;
+        this.userData = userData;
         this.initScript = initScript;
-        this.jvmopts = jvmopts;
+        this.jvmOpts = jvmOpts;
     }
 
     @Extension
@@ -168,5 +158,9 @@ public class Slave extends AbstractCloudSlave {
 
     public int getIdleTerminationTime() {
         return idleTerminationTime;
+    }
+
+    public String getUserData() {
+        return userData;
     }
 }
