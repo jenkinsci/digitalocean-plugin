@@ -56,11 +56,9 @@ public class Computer extends AbstractCloudComputer<Slave> {
         authToken = slave.getCloud().getAuthToken();
     }
 
-    public Droplet updateInstanceDescription() throws InterruptedException, RequestUnsuccessfulException, DigitalOceanException {
-
+    public Droplet updateInstanceDescription() throws RequestUnsuccessfulException, DigitalOceanException {
         DigitalOcean apiClient = new DigitalOceanClient(authToken);
-        Droplet dropletInfo = apiClient.getDropletInfo(dropletId);
-        return dropletInfo;
+        return apiClient.getDropletInfo(dropletId);
     }
 
     @Override

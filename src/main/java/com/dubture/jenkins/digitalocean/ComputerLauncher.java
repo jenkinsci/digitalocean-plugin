@@ -40,6 +40,7 @@ import hudson.util.TimeUnit2;
 import jenkins.model.Jenkins;
 import org.apache.commons.io.IOUtils;
 
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.PrintStream;
 
@@ -202,14 +203,29 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         }
     }
 
-    private Connection connectToSsh(Computer computer, PrintStream logger) throws InterruptedException, RequestUnsuccessfulException, DigitalOceanException {
+    private Connection connectToSsh(Computer computer, PrintStream logger) throws RequestUnsuccessfulException, DigitalOceanException {
 
         // TODO: make configurable?
         final long timeout = TimeUnit2.MINUTES.toMillis(5);
         final long startTime = System.currentTimeMillis();
 
-        while(true) {
+        while (true) {
             try {
+                Droplet droplet = DigitalOcean.getDroplet(computer.getCloud().getAuthToken(), computer.getNode().getDropletId());
+
+                switch (droplet.getStatus()) {
+                    case ACTIVE:
+                        break;
+
+                    case ARCHIVE:
+                    case OFF:
+                        throw new IllegalStateException("Droplet has unexpected status: " + droplet.getStatus());
+
+                    case NEW:
+                        logger.println("Droplet in NEW state, waiting for it to become ACTIVE");
+                        throw new IOException("sleep");
+                }
+
                 long waitTime = System.currentTimeMillis() - startTime;
                 if ( waitTime > timeout ) {
                     throw new RuntimeException("Timed out after "+ (waitTime / 1000) + " seconds of waiting for ssh to become available. (maximum timeout configured is "+ (timeout / 1000) + ")" );
@@ -231,12 +247,17 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
             } catch (IOException e) {
                 // keep retrying until SSH comes up
                 logger.println("Waiting for SSH to come up. Sleeping 5 seconds.");
-                Thread.sleep(5000);
+                try {
+                    Thread.sleep(5000);
+                }
+                catch (InterruptedException e2) {
+                    // Ignore
+                }
             }
         }
     }
 
-    private String getIpAddress(Computer computer) throws InterruptedException, RequestUnsuccessfulException, DigitalOceanException {
+    private static String getIpAddress(Computer computer) throws RequestUnsuccessfulException, DigitalOceanException {
         Droplet instance = computer.updateInstanceDescription();
 
         for (final Network network : instance.getNetworks().getVersion4Networks()) {
