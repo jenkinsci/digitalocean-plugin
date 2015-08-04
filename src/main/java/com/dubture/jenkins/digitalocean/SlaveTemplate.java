@@ -24,17 +24,13 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import com.myjeeva.digitalocean.pojo.Image;
-import com.myjeeva.digitalocean.pojo.Images;
 import com.myjeeva.digitalocean.pojo.Key;
 import com.myjeeva.digitalocean.pojo.Region;
-import com.myjeeva.digitalocean.pojo.Regions;
 import com.myjeeva.digitalocean.pojo.Size;
-import com.myjeeva.digitalocean.pojo.Sizes;
 import hudson.Extension;
 import hudson.RelativePath;
 import hudson.Util;
@@ -52,10 +48,11 @@ import org.kohsuke.stapler.QueryParameter;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -63,16 +60,16 @@ import java.util.logging.Logger;
 import static com.google.common.collect.Lists.newArrayList;
 
 /**
- * A {@link com.dubture.jenkins.digitalocean.SlaveTemplate} represents the configuration values for creating a
- * new slave via a DigitalOcean droplet.
+ * A {@link SlaveTemplate} represents the configuration values for creating a new slave via a DigitalOcean droplet.
  *
- * Holds things like Image ID, sizeId and region used for the specific droplet.
+ * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * The {@link SlaveTemplate#provision(com.myjeeva.digitalocean.impl.DigitalOceanClient, String, String, Integer, hudson.util.StreamTaskListener)} method
+ * <p>The {@link SlaveTemplate#provision(DigitalOceanClient, String, String, Integer, StreamTaskListener)} method
  * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
  */
+@SuppressWarnings("unused")
 public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private static final String DROPLET_PREFIX = "jenkins-";
@@ -80,6 +77,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     private final String labelString;
 
     private final int idleTerminationInMinutes;
+
+    /**
+     * The maximum number of executors that this slave will run.
+     */
+    private final int numExecutors;
 
     private final String labels;
 
@@ -107,29 +109,26 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     /**
      * Data is injected from the global Jenkins configuration via jelly.
-     * @param imageId an image slug e.g. "ubuntu-14-04-x64"
+     * @param imageId an image id e.g. "12345678"
      * @param sizeId the image size e.g. "512mb" or "1gb"
      * @param regionId the region e.g. "nyc1"
      * @param idleTerminationInMinutes how long to wait before destroying a slave
+     * @param numExecutors the number of executors that this slave supports
      * @param labelString the label for this slave
      */
     @DataBoundConstructor
-    public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes, String labelString) {
+    public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes, String numExecutors, String labelString) {
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}", new Object[] { imageId, sizeId, regionId});
         this.imageId = imageId;
         this.sizeId = sizeId;
         this.regionId = regionId;
 
-        this.idleTerminationInMinutes = Integer.parseInt(idleTerminationInMinutes);
+        this.idleTerminationInMinutes = tryParseInteger(idleTerminationInMinutes, 10);
+        this.numExecutors = tryParseInteger(numExecutors, 1);
         this.labelString = labelString;
         this.labels = Util.fixNull(labelString);
 
         readResolve();
-    }
-
-    protected Object readResolve() {
-        labelSet = Label.parse(labels);
-        return this;
     }
 
     /**
@@ -153,12 +152,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             logger.println("Starting to provision digital ocean droplet using image: " + imageId + ", region: " + regionId + ", sizeId: " + sizeId);
 
             // create a new droplet
-            // TODO: set the data from the UI
             Droplet droplet = new Droplet();
             droplet.setName(dropletName);
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
-            droplet.setImage(new Image(imageId));
+            droplet.setImage(new Image(Integer.parseInt(imageId)));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
 
             logger.println("Creating slave with new droplet " + dropletName);
@@ -172,7 +170,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     /**
-     * Create a new {@link com.dubture.jenkins.digitalocean.Slave} from the given {@link com.myjeeva.digitalocean.pojo.Droplet}
+     * Create a new {@link Slave} from the given {@link Droplet}
      * @param droplet the droplet being created
      * @param privateKey the RSA private key being used
      * @return the provisioned {@link Slave}
@@ -189,7 +187,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 privateKey,
                 "/jenkins",
                 "root",
-                1,
+                numExecutors,
                 idleTerminationInMinutes,
                 Node.Mode.NORMAL,
                 labels,
@@ -211,65 +209,33 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
         public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
 
-            List<Size> availableSizes = getAvailableSizes(authToken);
+            List<Size> availableSizes = DigitalOcean.getAvailableSizes(authToken);
             ListBoxModel model = new ListBoxModel();
 
             for (Size size : availableSizes) {
-                model.add(size.getSlug());
+                model.add(DigitalOcean.buildSizeLabel(size), size.getSlug());
             }
 
             return model;
-        }
-
-        private static List<Size> getAvailableSizes(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
-            DigitalOceanClient client = new DigitalOceanClient(authToken);
-
-            List<Size> availableSizes = new ArrayList<Size>();
-            int page = 0;
-            Sizes sizes;
-
-            do {
-                page += 1;
-                sizes = client.getAvailableSizes(page);
-                availableSizes.addAll(sizes.getSizes());
-            }
-            while (sizes.getMeta().getTotal() > page);
-
-            return availableSizes;
         }
 
         public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
 
-            List<Image> availableSizes = getAvailableImages(authToken);
+            SortedMap<String, Image> availableSizes = DigitalOcean.getAvailableImages(authToken);
             ListBoxModel model = new ListBoxModel();
 
-            for (Image image : availableSizes) {
-                model.add(image.getDistribution() + " " + image.getName(), image.getSlug());
+            for (Map.Entry<String, Image> entry : availableSizes.entrySet()) {
+                // Reference image IDs instead of slugs so that we can build
+                // images based upon snapshots as well as standard images
+                model.add(entry.getKey(), entry.getValue().getId().toString());
             }
 
             return model;
         }
 
-        private static List<Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
-            DigitalOceanClient client = new DigitalOceanClient(authToken);
-
-            List<Image> availableSizes = new ArrayList<Image>();
-            Images images;
-            int page = 0;
-
-            do {
-                page += 1;
-                images = client.getAvailableImages(page);
-                availableSizes.addAll(images.getImages());
-            }
-            while (images.getMeta().getTotal() > page);
-
-            return availableSizes;
-        }
-
         public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
 
-            List<Region> availableSizes = getAvailableRegions(authToken);
+            List<Region> availableSizes = DigitalOcean.getAvailableRegions(authToken);
             ListBoxModel model = new ListBoxModel();
 
             for (Region region : availableSizes) {
@@ -278,26 +244,9 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
             return model;
         }
-
-        private static List<Region> getAvailableRegions(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
-            DigitalOceanClient client = new DigitalOceanClient(authToken);
-
-            List<Region> availableRegions = new ArrayList<Region>();
-            Regions regions;
-            int page = 0;
-
-            do {
-                page += 1;
-                regions = client.getAvailableRegions(page);
-                availableRegions.addAll(regions.getRegions());
-            }
-            while (regions.getMeta().getTotal() > page);
-
-            return availableRegions;
-        }
-
     }
 
+    @SuppressWarnings("unchecked")
     public Descriptor<SlaveTemplate> getDescriptor() {
         return Jenkins.getInstance().getDescriptor(getClass());
     }
@@ -335,10 +284,25 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     public int getNumExecutors() {
-        return 1;
+        return numExecutors;
     }
 
     public int getIdleTerminationInMinutes() {
         return idleTerminationInMinutes;
+    }
+
+    private static int tryParseInteger(final String integerString, final int defaultValue) {
+        try {
+            return Integer.parseInt(integerString);
+        }
+        catch (NumberFormatException e) {
+            LOGGER.log(Level.INFO, "Invalid integer {0}, defaulting to {1}", new Object[] {integerString, defaultValue});
+            return defaultValue;
+        }
+    }
+
+    protected Object readResolve() {
+        labelSet = Label.parse(labels);
+        return this;
     }
 }
