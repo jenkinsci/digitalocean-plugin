@@ -40,7 +40,6 @@ import hudson.util.TimeUnit2;
 import jenkins.model.Jenkins;
 import org.apache.commons.io.IOUtils;
 
-import javax.inject.Inject;
 import java.io.IOException;
 import java.io.PrintStream;
 
@@ -208,6 +207,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         // TODO: make configurable?
         final long timeout = TimeUnit2.MINUTES.toMillis(5);
         final long startTime = System.currentTimeMillis();
+        final int sleepTime = 10;
 
         while (true) {
             try {
@@ -227,7 +227,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                 }
 
                 long waitTime = System.currentTimeMillis() - startTime;
-                if ( waitTime > timeout ) {
+                if (waitTime > timeout) {
                     throw new RuntimeException("Timed out after "+ (waitTime / 1000) + " seconds of waiting for ssh to become available. (maximum timeout configured is "+ (timeout / 1000) + ")" );
                 }
 
@@ -241,14 +241,15 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                 int port = computer.getSshPort();
                 logger.println("Connecting to " + host + " on port " + port + ". ");
                 Connection conn = new Connection(host, port);
-                conn.connect();
+                conn.connect(null, 10, 0);
                 logger.println("Connected via SSH.");
                 return conn; // successfully connected
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 // keep retrying until SSH comes up
-                logger.println("Waiting for SSH to come up. Sleeping 5 seconds.");
+                logger.printf("Waiting for SSH to come up. Sleeping %d seconds.%n", sleepTime);
                 try {
-                    Thread.sleep(5000);
+                    Thread.sleep(10000);
                 }
                 catch (InterruptedException e2) {
                     // Ignore
