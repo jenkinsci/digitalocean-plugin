@@ -47,7 +47,7 @@
         </f:entry>
 
         <f:entry title="Idle termination time" field="idleTerminationInMinutes">
-            <f:textbox default="60" />
+            <f:textbox default="10" />
         </f:entry>
 
         <f:entry title="User Data" field="userData">
