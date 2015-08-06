@@ -43,6 +43,8 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.PrintStream;
 
+import static java.lang.String.format;
+
 /**
  * The {@link ComputerLauncher} is responsible for:
  *
@@ -97,46 +99,16 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                         return; // failed to connect as root.
                     }
             }
+
             conn = cleanupConn;
+            final SCPClient scp = conn.createSCPClient();
 
-            SCPClient scp = conn.createSCPClient();
-            String initScript = computer.getNode().getInitScript();
-
-            if(initScript != null && initScript.trim().length() > 0 && conn.exec("test -e ~/.hudson-run-init", logger) != 0) {
-                logger.println("Executing init script");
-                scp.put(initScript.getBytes("UTF-8"),"init.sh","/tmp","0700");
-                Session session = conn.openSession();
-                session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-                session.execCommand(buildUpCommand(computer, "/tmp/init.sh"));
-
-                session.getStdin().close();    // nothing to write here
-                session.getStderr().close();   // we are not supposed to get anything from stderr
-                IOUtils.copy(session.getStdout(), logger);
-
-                int exitStatus = waitCompletion(session);
-                if (exitStatus != 0) {
-                    logger.println("init script failed: exit code=" + exitStatus);
-                    return;
-                }
-                session.close();
-
-                // Needs a tty to run sudo.
-                session = conn.openSession();
-                session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-                session.execCommand(buildUpCommand(computer, "touch ~/.hudson-run-init"));
-                session.close();
+            if (!runInitScript(computer, logger, conn, scp)) {
+                return;
             }
 
-            logger.println("Verifying that java exists");
-            if(conn.exec("java -fullversion", logger) !=0) {
-                logger.println("Installing Java");
-
-                // TODO: Add support for non-debian based java installations
-                // and let the user select the java version
-                if(conn.exec("apt-get update -q && apt-get install -y openjdk-7-jdk", logger) !=0) {
-                    logger.println("Failed to download Java");
-                    return;
-                }
+            if (!installJava(logger, conn)) {
+                return;
             }
 
             logger.println("Copying slave.jar");
@@ -164,6 +136,59 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         }
     }
 
+    private boolean runInitScript(final Computer computer, final PrintStream logger, final Connection conn, final SCPClient scp)
+            throws IOException, InterruptedException {
+
+        String initScript = Util.fixEmptyAndTrim(computer.getNode().getInitScript());
+
+        if (initScript == null) {
+            return true;
+        }
+        if (conn.exec("test -e ~/.hudson-run-init", logger) == 0) {
+            return true;
+        }
+
+        logger.println("Executing init script");
+        scp.put(initScript.getBytes("UTF-8"), "init.sh", "/tmp", "0700");
+        Session session = conn.openSession();
+        session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
+        session.execCommand(buildUpCommand(computer, "/tmp/init.sh"));
+
+        session.getStdin().close();    // nothing to write here
+        session.getStderr().close();   // we are not supposed to get anything from stderr
+        IOUtils.copy(session.getStdout(), logger);
+
+        int exitStatus = waitCompletion(session);
+        if (exitStatus != 0) {
+            logger.println("init script failed: exit code=" + exitStatus);
+            return false;
+        }
+        session.close();
+
+        // Needs a tty to run sudo.
+        session = conn.openSession();
+        session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
+        session.execCommand(buildUpCommand(computer, "touch ~/.hudson-run-init"));
+        session.close();
+
+        return true;
+    }
+
+    private boolean installJava(final PrintStream logger, final Connection conn) throws IOException, InterruptedException {
+        logger.println("Verifying that java exists");
+
+        if (conn.exec("java -fullversion", logger) !=0) {
+            logger.println("Installing Java");
+
+            // TODO: Add support for non-debian based java installations
+            // and let the user select the java version
+            if (conn.exec("apt-get update -q && apt-get install -y openjdk-7-jdk", logger) !=0) {
+                logger.println("Failed to download Java");
+                return false;
+            }
+        }
+        return true;
+    }
 
     private BootstrapResult bootstrap(Connection bootstrapConn, Computer computer, PrintStream logger) throws IOException, InterruptedException {
         logger.println("bootstrap()" );
@@ -209,53 +234,66 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         final long startTime = System.currentTimeMillis();
         final int sleepTime = 10;
 
-        while (true) {
-            try {
-                Droplet droplet = DigitalOcean.getDroplet(computer.getCloud().getAuthToken(), computer.getNode().getDropletId());
+        long waitTime;
 
-                switch (droplet.getStatus()) {
-                    case ACTIVE:
-                        break;
+        while ((waitTime = System.currentTimeMillis() - startTime) < timeout) {
 
-                    case ARCHIVE:
-                    case OFF:
-                        throw new IllegalStateException("Droplet has unexpected status: " + droplet.getStatus());
+            // Hack to fetch this each time through the loop to get the latest information.
+            final Droplet droplet = DigitalOcean.getDroplet(
+                    computer.getCloud().getAuthToken(),
+                    computer.getNode().getDropletId());
 
-                    case NEW:
-                        logger.println("Droplet in NEW state, waiting for it to become ACTIVE");
-                        throw new IOException("sleep");
-                }
-
-                long waitTime = System.currentTimeMillis() - startTime;
-                if (waitTime > timeout) {
-                    throw new RuntimeException("Timed out after "+ (waitTime / 1000) + " seconds of waiting for ssh to become available. (maximum timeout configured is "+ (timeout / 1000) + ")" );
-                }
-
-                String host = getIpAddress(computer);
-
-                if (Strings.isNullOrEmpty(host) || "0.0.0.0".equals(host)) {
-                    logger.println("No ip address yet, your host is most likely waiting for an ip address.");
-                    throw new IOException("sleep");
-                }
-
-                int port = computer.getSshPort();
-                logger.println("Connecting to " + host + " on port " + port + ". ");
-                Connection conn = new Connection(host, port);
-                conn.connect(null, 10, 0);
-                logger.println("Connected via SSH.");
-                return conn; // successfully connected
+            if (isDropletStarting(droplet)) {
+                logger.println("Waiting for droplet to enter ACTIVE state. Sleeping " + sleepTime + " seconds.");
             }
-            catch (IOException e) {
-                // keep retrying until SSH comes up
-                logger.printf("Waiting for SSH to come up. Sleeping %d seconds.%n", sleepTime);
+            else {
                 try {
-                    Thread.sleep(10000);
+                    final String host = getIpAddress(computer);
+
+                    if (Strings.isNullOrEmpty(host) || "0.0.0.0".equals(host)) {
+                        logger.println("No ip address yet, your host is most likely waiting for an ip address.");
+                    }
+                    else {
+                        int port = computer.getSshPort();
+
+                        return getDropletConnection(host, port, logger);
+                    }
+                } catch (IOException e) {
+                    // Ignore, we'll retry.
                 }
-                catch (InterruptedException e2) {
-                    // Ignore
-                }
+                logger.println("Waiting for SSH to come up. Sleeping " + sleepTime + " seconds.");
             }
+
+            sleep(sleepTime);
         }
+
+        throw new RuntimeException(format(
+            "Timed out after %d seconds of waiting for ssh to become available (max timeout configured is %s)",
+            waitTime / 1000,
+            timeout / 1000));
+    }
+
+    private static boolean isDropletStarting(final Droplet droplet) {
+
+        switch (droplet.getStatus()) {
+            case NEW:
+                return true;
+
+            case ACTIVE:
+                return false;
+
+            default:
+                throw new IllegalStateException("Droplet has unexpected status: " + droplet.getStatus());
+        }
+    }
+
+    private Connection getDropletConnection(String host, int port, PrintStream logger) throws IOException {
+        logger.println("Connecting to " + host + " on port " + port + ". ");
+        Connection conn = new Connection(host, port);
+        // Apply a timeout of 10s for connecting, reading and key exchange
+        conn.connect(null, 10000, 10000, 10000);
+        logger.println("Connected via SSH.");
+        return conn;
     }
 
     private static String getIpAddress(Computer computer) throws RequestUnsuccessfulException, DigitalOceanException {
@@ -286,5 +324,14 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 //            command = computer.getRootCommandPrefix() + " " + command;
         }
         return command;
+    }
+
+    private static void sleep(int seconds) {
+        try {
+            Thread.sleep(seconds * 1000);
+        }
+        catch (InterruptedException e) {
+            // Ignore
+        }
     }
 }
