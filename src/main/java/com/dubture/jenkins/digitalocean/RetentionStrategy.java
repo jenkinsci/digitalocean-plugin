@@ -24,14 +24,15 @@
 
 package com.dubture.jenkins.digitalocean;
 
+import com.myjeeva.digitalocean.pojo.Droplet;
 import hudson.model.Descriptor;
 import hudson.slaves.CloudSlaveRetentionStrategy;
 import hudson.util.TimeUnit2;
 
 /**
  *
- * The {@link com.dubture.jenkins.digitalocean.RetentionStrategy} is mainly used to determine
- * when an idle {@link com.myjeeva.digitalocean.pojo.Droplet} can be destroyed.
+ * The {@link RetentionStrategy} is mainly used to determine
+ * when an idle {@link Droplet} can be destroyed.
  *
  * @author robert.gruendler@dubture.com
  */

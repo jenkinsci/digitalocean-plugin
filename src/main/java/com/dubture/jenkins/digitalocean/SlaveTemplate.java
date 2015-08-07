@@ -100,6 +100,17 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      */
     private final String regionId;
 
+    /**
+     * User-supplied data for configuring a droplet
+     */
+    private final String userData;
+
+    /**
+     * Setup script for preparing the new slave. Differs from userData in that Jenkins runs this script,
+     * as opposed to the DigitalOcean provisioning process.
+     */
+    private final String initScript;
+
     private transient Set<LabelAtom> labelSet;
 
     protected transient Cloud parent;
@@ -115,10 +126,16 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param idleTerminationInMinutes how long to wait before destroying a slave
      * @param numExecutors the number of executors that this slave supports
      * @param labelString the label for this slave
+     * @param userData user data for DigitalOcean to apply when building the slave
+     * @param initScript setup script to configure the slave
      */
     @DataBoundConstructor
-    public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes, String numExecutors, String labelString) {
-        LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}", new Object[] { imageId, sizeId, regionId});
+    public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes,
+            String numExecutors, String labelString, String userData, String initScript) {
+
+        LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
+            new Object[] { imageId, sizeId, regionId});
+
         this.imageId = imageId;
         this.sizeId = sizeId;
         this.regionId = regionId;
@@ -127,6 +144,9 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.numExecutors = tryParseInteger(numExecutors, 1);
         this.labelString = labelString;
         this.labels = Util.fixNull(labelString);
+
+        this.userData = userData;
+        this.initScript = initScript;
 
         readResolve();
     }
@@ -143,13 +163,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @throws RequestUnsuccessfulException
      * @throws Descriptor.FormException
      */
-    public Slave provision(DigitalOceanClient apiClient, String dropletName, String privateKey, Integer sshKeyId, StreamTaskListener listener) throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
+    public Slave provision(DigitalOceanClient apiClient, String dropletName, String privateKey, Integer sshKeyId, StreamTaskListener listener)
+            throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
 
         LOGGER.log(Level.INFO, "Provisioning slave...");
 
         PrintStream logger = listener.getLogger();
         try {
-            logger.println("Starting to provision digital ocean droplet using image: " + imageId + ", region: " + regionId + ", sizeId: " + sizeId);
+            logger.printf("Starting to provision digital ocean droplet using image: %s, region: %s, sizeId: %s%n",
+                imageId, regionId, sizeId);
 
             // create a new droplet
             Droplet droplet = new Droplet();
@@ -158,6 +180,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setRegion(new Region(regionId));
             droplet.setImage(new Image(Integer.parseInt(imageId)));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
+
+            if (!(userData == null || userData.trim().isEmpty())) {
+                droplet.setUserData(userData);
+            }
 
             logger.println("Creating slave with new droplet " + dropletName);
 
@@ -189,12 +215,13 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 "root",
                 numExecutors,
                 idleTerminationInMinutes,
+                userData,
                 Node.Mode.NORMAL,
                 labels,
                 new ComputerLauncher(),
                 new RetentionStrategy(),
                 Collections.<NodeProperty<?>>emptyList(),
-                "",
+                Util.fixNull(initScript),
                 ""
         );
     }
@@ -289,6 +316,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public int getIdleTerminationInMinutes() {
         return idleTerminationInMinutes;
+    }
+
+    public String getUserData() {
+        return userData;
+    }
+
+    public String getInitScript() {
+        return initScript;
     }
 
     private static int tryParseInteger(final String integerString, final int defaultValue) {

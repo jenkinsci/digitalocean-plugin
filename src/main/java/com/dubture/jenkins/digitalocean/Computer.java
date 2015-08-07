@@ -36,11 +36,9 @@ import java.util.logging.Logger;
 
 /**
  *
- * A {@link hudson.model.Computer} implementation for DigitalOcean.
+ * A {@link hudson.model.Computer} implementation for DigitalOcean. Holds a handle to an {@link Slave}.
  *
- * Holds a handle to an {@link com.dubture.jenkins.digitalocean.Slave}
- *
- * Mainly responsible for updating the {@link com.myjeeva.digitalocean.pojo.Droplet} information via {@link Computer#updateInstanceDescription()}
+ * <p>Mainly responsible for updating the {@link Droplet} information via {@link Computer#updateInstanceDescription()}
  *
  * @author robert.gruendler@dubture.com
  */
@@ -58,11 +56,9 @@ public class Computer extends AbstractCloudComputer<Slave> {
         authToken = slave.getCloud().getAuthToken();
     }
 
-    public Droplet updateInstanceDescription() throws InterruptedException, RequestUnsuccessfulException, DigitalOceanException {
-
+    public Droplet updateInstanceDescription() throws RequestUnsuccessfulException, DigitalOceanException {
         DigitalOcean apiClient = new DigitalOceanClient(authToken);
-        Droplet dropletInfo = apiClient.getDropletInfo(dropletId);
-        return dropletInfo;
+        return apiClient.getDropletInfo(dropletId);
     }
 
     @Override

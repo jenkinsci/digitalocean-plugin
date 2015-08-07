@@ -26,42 +26,20 @@
 
     <table width="100%">
 
-        <f:entry title="Image" field="imageId">
-            <f:select />
-        </f:entry>
-
-        <f:entry title="Size" field="sizeId">
-            <f:select />
-        </f:entry>
-
-        <f:entry title="Region" field="regionId">
-            <f:select />
-        </f:entry>
-
         <f:entry title="Labels" field="labelString">
             <f:textbox/>
         </f:entry>
 
         <f:entry title="Number of executors" field="numExecutors">
-            <f:textbox default="1" />
+            <f:textbox/>
         </f:entry>
 
         <f:entry title="Idle termination time" field="idleTerminationInMinutes">
-            <f:textbox default="10" />
-        </f:entry>
-
-        <f:entry title="User Data" field="userData">
-            <f:textarea/>
+            <f:textbox/>
         </f:entry>
 
         <f:entry title="Init Script" field="initScript">
             <f:textarea/>
-        </f:entry>
-
-        <f:entry title="">
-            <div align="right">
-                <f:repeatableDeleteButton />
-            </div>
         </f:entry>
 
     </table>

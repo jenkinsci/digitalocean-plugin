@@ -1,8 +1,10 @@
 package com.dubture.jenkins.digitalocean;
 
+import com.google.common.base.Function;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
+import com.myjeeva.digitalocean.pojo.Base;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import com.myjeeva.digitalocean.pojo.Droplets;
 import com.myjeeva.digitalocean.pojo.Image;
@@ -14,6 +16,7 @@ import com.myjeeva.digitalocean.pojo.Regions;
 import com.myjeeva.digitalocean.pojo.Size;
 import com.myjeeva.digitalocean.pojo.Sizes;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -202,5 +205,18 @@ public final class DigitalOcean {
         while (droplets.getMeta().getTotal() > page);
 
         return availableDroplets;
+    }
+
+    /**
+     * Fetches information for the specified droplet.
+     * @param authToken the API authentication token to use
+     * @param dropletId the ID of the droplet to query
+     * @return information for the specified droplet
+     * @throws DigitalOceanException
+     * @throws RequestUnsuccessfulException
+     */
+    static Droplet getDroplet(String authToken, Integer dropletId) throws DigitalOceanException, RequestUnsuccessfulException {
+        LOGGER.log(Level.INFO, "Fetching droplet {0}", dropletId);
+        return new DigitalOceanClient(authToken).getDropletInfo(dropletId);
     }
 }
