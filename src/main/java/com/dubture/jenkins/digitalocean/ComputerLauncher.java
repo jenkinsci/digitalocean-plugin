@@ -290,8 +290,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     private Connection getDropletConnection(String host, int port, PrintStream logger) throws IOException {
         logger.println("Connecting to " + host + " on port " + port + ". ");
         Connection conn = new Connection(host, port);
-        // Apply a timeout of 10s for connecting, reading and key exchange
-        conn.connect(null, 10000, 10000, 10000);
+        conn.connect();
         logger.println("Connected via SSH.");
         return conn;
     }
