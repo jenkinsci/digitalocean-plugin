@@ -38,10 +38,6 @@
             <f:textbox/>
         </f:entry>
 
-        <f:entry title="Init Script" field="initScript">
-            <f:textarea/>
-        </f:entry>
-
     </table>
 
 </j:jelly>
