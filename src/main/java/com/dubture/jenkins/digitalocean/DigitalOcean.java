@@ -1,10 +1,9 @@
 package com.dubture.jenkins.digitalocean;
 
-import com.google.common.base.Function;
+import com.myjeeva.digitalocean.common.ImageType;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
-import com.myjeeva.digitalocean.pojo.Base;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import com.myjeeva.digitalocean.pojo.Droplets;
 import com.myjeeva.digitalocean.pojo.Image;
@@ -16,7 +15,6 @@ import com.myjeeva.digitalocean.pojo.Regions;
 import com.myjeeva.digitalocean.pojo.Size;
 import com.myjeeva.digitalocean.pojo.Sizes;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -94,7 +92,8 @@ public final class DigitalOcean {
             page += 1;
             images = client.getAvailableImages(page);
             for (Image image : images.getImages()) {
-                availableImages.put(image.getDistribution() + " " + image.getName(), image);
+                String prefix = image.getType() == ImageType.BACKUP ? "(Backup) " : "";
+                availableImages.put(prefix + image.getDistribution() + " " + image.getName(), image);
             }
         }
         while (images.getMeta().getTotal() > page);
@@ -216,7 +215,20 @@ public final class DigitalOcean {
      * @throws RequestUnsuccessfulException
      */
     static Droplet getDroplet(String authToken, Integer dropletId) throws DigitalOceanException, RequestUnsuccessfulException {
-        LOGGER.log(Level.INFO, "Fetching droplet {0}", dropletId);
+        LOGGER.log(Level.INFO, "Fetching droplet " + dropletId);
         return new DigitalOceanClient(authToken).getDropletInfo(dropletId);
+    }
+
+    static Image newImage(String idOrSlug) {
+        Image image;
+
+        try {
+            image = new Image(Integer.parseInt(idOrSlug));
+        }
+        catch (NumberFormatException e) {
+            image = new Image(idOrSlug);
+        }
+
+        return image;
     }
 }
