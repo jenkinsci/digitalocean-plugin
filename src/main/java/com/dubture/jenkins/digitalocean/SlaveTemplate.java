@@ -24,6 +24,7 @@
 
 package com.dubture.jenkins.digitalocean;
 
+import com.myjeeva.digitalocean.common.ImageType;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
@@ -253,28 +254,12 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
             for (Map.Entry<String, Image> entry : availableImages.entrySet()) {
                 final Image image = entry.getValue();
-                final String value;
 
-                switch (image.getType()) {
-                    case SNAPSHOT:
-                        value = image.getSlug();
-                        break;
+                // For non-snapshots, use the image ID instead of the slug (which isn't available anyway)
+                // so that we can build images based upon backups.
+                final String value = image.getType() == ImageType.SNAPSHOT ? image.getSlug() : image.getId().toString();
 
-                    case BACKUP:
-                        // Use the image ID instead of the slug (which isn't available anyway)
-                        // so that we can build images based upon snapshots as well as standard images
-                        value = image.getId().toString();
-                        break;
-
-                    default:
-                        LOGGER.log(Level.WARNING, "Ignoring image of type " + image.getType());
-                        value = null;
-                        break;
-                }
-
-                if (value != null) {
-                    model.add(entry.getKey(), value);
-                }
+                model.add(entry.getKey(), value);
             }
 
             return model;

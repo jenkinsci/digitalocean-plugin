@@ -74,7 +74,8 @@ public final class DigitalOcean {
 
     /**
      * Fetches all available images. Unlike the other getAvailable* methods, this returns a map because the values
-     * are sorted by a key composed of their OS distribution and version, which is useful for display purposes.
+     * are sorted by a key composed of their OS distribution and version, which is useful for display purposes. Backup
+     * images are prefixed with "(Backup) " to easily differentiate them.
      *
      * @param authToken the API authorisation token to use
      * @return a sorted map of {@link Image}s, key on their OS distribution and version
