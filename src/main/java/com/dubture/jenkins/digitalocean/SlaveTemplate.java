@@ -24,6 +24,7 @@
 
 package com.dubture.jenkins.digitalocean;
 
+import com.myjeeva.digitalocean.common.ImageType;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
@@ -120,7 +121,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     /**
      * Data is injected from the global Jenkins configuration via jelly.
-     * @param imageId an image id e.g. "12345678"
+     * @param imageId an image slug e.g. "debian-8-x64", or an integer e.g. of a backup, such as "12345678"
      * @param sizeId the image size e.g. "512mb" or "1gb"
      * @param regionId the region e.g. "nyc1"
      * @param idleTerminationInMinutes how long to wait before destroying a slave
@@ -178,7 +179,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setName(dropletName);
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
-            droplet.setImage(new Image(Integer.parseInt(imageId)));
+            droplet.setImage(DigitalOcean.newImage(imageId));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
 
             if (!(userData == null || userData.trim().isEmpty())) {
@@ -248,13 +249,17 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
         public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
 
-            SortedMap<String, Image> availableSizes = DigitalOcean.getAvailableImages(authToken);
+            SortedMap<String, Image> availableImages = DigitalOcean.getAvailableImages(authToken);
             ListBoxModel model = new ListBoxModel();
 
-            for (Map.Entry<String, Image> entry : availableSizes.entrySet()) {
-                // Reference image IDs instead of slugs so that we can build
-                // images based upon snapshots as well as standard images
-                model.add(entry.getKey(), entry.getValue().getId().toString());
+            for (Map.Entry<String, Image> entry : availableImages.entrySet()) {
+                final Image image = entry.getValue();
+
+                // For non-snapshots, use the image ID instead of the slug (which isn't available anyway)
+                // so that we can build images based upon backups.
+                final String value = image.getType() == ImageType.SNAPSHOT ? image.getSlug() : image.getId().toString();
+
+                model.add(entry.getKey(), value);
             }
 
             return model;
