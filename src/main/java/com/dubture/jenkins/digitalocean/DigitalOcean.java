@@ -1,5 +1,14 @@
 package com.dubture.jenkins.digitalocean;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import com.myjeeva.digitalocean.common.ImageType;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
@@ -14,15 +23,6 @@ import com.myjeeva.digitalocean.pojo.Region;
 import com.myjeeva.digitalocean.pojo.Regions;
 import com.myjeeva.digitalocean.pojo.Size;
 import com.myjeeva.digitalocean.pojo.Sizes;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static com.google.common.collect.Lists.newArrayList;
 
@@ -85,7 +85,8 @@ public final class DigitalOcean {
     static SortedMap<String,Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
-        SortedMap<String,Image> availableImages = new TreeMap<String,Image>();
+        SortedMap<String,Image> availableImages = new TreeMap<String,Image>(ignoringCase());
+
         Images images;
         int page = 0;
 
@@ -93,7 +94,7 @@ public final class DigitalOcean {
             page += 1;
             images = client.getAvailableImages(page);
             for (Image image : images.getImages()) {
-                String prefix = image.getType() == ImageType.BACKUP ? "(Backup) " : "";
+                String prefix = getPrefix(image);
                 availableImages.put(prefix + image.getDistribution() + " " + image.getName(), image);
             }
         }
@@ -102,7 +103,43 @@ public final class DigitalOcean {
         return availableImages;
     }
 
-    /**
+	private static String getPrefix(Image image) {
+
+		if (image.getType() == ImageType.BACKUP) {
+			return "(Backup) ";
+		}
+
+		if (isUserSnapshot(image)) {
+			return "(Snapshot) ";
+		}
+
+		return "";
+	}
+
+	/**
+	 * Returns the appropriate identifier for creating droplets from this image.
+	 * For non-snapshots, use the image ID instead of the slug (which isn't available
+	 * anyway) so that we can build images based upon backups.
+	 *
+	 * @param image
+	 * @return either a "slug" identifier e.g. "ubuntu-15-04-x64", or an integer ID.
+	 */
+	static String getImageIdentifier(Image image) {
+		return image.getType() == ImageType.SNAPSHOT && image.getSlug() != null
+			? image.getSlug()
+			: image.getId().toString();
+	}
+
+	/**
+	 * I'm told that if you manually take an image snapshot, then it
+	 * has a snapshot type but no slug. Therefore, indicate that it is
+	 * a user-snapshot
+	 */
+	private static boolean isUserSnapshot(Image image) {
+		return image.getType() == ImageType.SNAPSHOT && image.getSlug() == null;
+	}
+
+	/**
      * Fetches all regions that are flagged as available.
      * @param authToken the API authorisation token to use
      * @return a list of {@link Region}s, sorted by name.
@@ -232,4 +269,13 @@ public final class DigitalOcean {
 
         return image;
     }
+
+	private static Comparator<String> ignoringCase() {
+		return new Comparator<String>() {
+			@Override
+			public int compare(final String o1, final String o2) {
+				return o1.compareToIgnoreCase(o2);
+			}
+		};
+	}
 }

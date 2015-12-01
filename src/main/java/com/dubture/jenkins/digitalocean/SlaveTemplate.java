@@ -24,7 +24,17 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.myjeeva.digitalocean.common.ImageType;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
@@ -46,17 +56,6 @@ import hudson.util.StreamTaskListener;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
-
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.UUID;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static com.google.common.collect.Lists.newArrayList;
 
@@ -257,7 +256,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
                 // For non-snapshots, use the image ID instead of the slug (which isn't available anyway)
                 // so that we can build images based upon backups.
-                final String value = image.getType() == ImageType.SNAPSHOT ? image.getSlug() : image.getId().toString();
+                final String value = DigitalOcean.getImageIdentifier(image);
 
                 model.add(entry.getKey(), value);
             }
