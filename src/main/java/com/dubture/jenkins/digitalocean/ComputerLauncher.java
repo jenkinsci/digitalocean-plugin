@@ -42,6 +42,9 @@ import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
 
 import static java.lang.String.format;
 
@@ -71,6 +74,9 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
         Computer computer = (Computer)_computer;
         PrintStream logger = listener.getLogger();
+
+        Date startDate = new Date();
+        logger.println("Start time: " + getUtcDate(startDate));
 
         final Connection bootstrapConn;
         final Connection conn;
@@ -135,6 +141,9 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
             }
             e.printStackTrace(logger);
         } finally {
+            Date endDate = new Date();
+            logger.println("Done setting up at: " + getUtcDate(endDate));
+            logger.println("Done in " + TimeUnit2.MILLISECONDS.toSeconds(endDate.getTime() - startDate.getTime()) + " seconds");
             if(cleanupConn != null && !successful) {
                 cleanupConn.close();
             }
@@ -337,5 +346,11 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         catch (InterruptedException e) {
             // Ignore
         }
+    }
+
+    private String getUtcDate(Date date) {
+        SimpleDateFormat utcFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
+        utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return utcFormat.format(date);
     }
 }
