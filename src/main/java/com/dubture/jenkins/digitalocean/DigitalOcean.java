@@ -190,11 +190,14 @@ public final class DigitalOcean {
             memoryUnits = "gb";
         }
 
-        return String.format("%d%s / %d%s",
+        return String.format("$%s/month ($%s/hour): %d%s RAM, %d CPU, %dgb Disk, %dtb Transfer",
+                size.getPriceMonthly().toString(),
+                size.getPriceHourly().toString(),
                 memory,
                 memoryUnits,
+                size.getVirutalCpuCount(),
                 size.getDiskSize(),
-                "gb");
+                size.getTransfer());
     }
 
     static List<Key> getAvailableKeys(String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
