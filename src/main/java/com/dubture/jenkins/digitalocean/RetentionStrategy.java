@@ -50,7 +50,9 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<Computer> {
     }
 
     @Override
-    protected boolean isIdleForTooLong(Computer computer) {
+    protected long checkCycle() {
+        return 1; // ask Jenkins to check every 1 minute, though it might decide to check in 2 or 3 (or longer?)
+    }
 
     @Override
     protected boolean isIdleForTooLong(Computer computer) {
