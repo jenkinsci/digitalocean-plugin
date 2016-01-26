@@ -25,6 +25,11 @@
             <name>Andreas Pieber</name>
             <email>anpieber@gmail.com</email>
         </developer>
+        <developer>
+            <id>nurupo</id>
+            <name>Maxim Biro</name>
+            <email>nurupo.contributions@gmail.com</email>
+        </developer>
     </developers>
 
     <scm>
