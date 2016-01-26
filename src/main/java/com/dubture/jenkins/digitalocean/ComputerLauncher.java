@@ -42,6 +42,7 @@ import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.SocketTimeoutException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
@@ -270,7 +271,10 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                     else {
                         int port = computer.getSshPort();
 
-                        return getDropletConnection(host, port, logger);
+                        Connection conn = getDropletConnection(host, port, logger);
+                        if (conn != null) {
+                            return conn;
+                        }
                     }
                 } catch (IOException e) {
                     // Ignore, we'll retry.
@@ -304,7 +308,11 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     private Connection getDropletConnection(String host, int port, PrintStream logger) throws IOException {
         logger.println("Connecting to " + host + " on port " + port + ". ");
         Connection conn = new Connection(host, port);
-        conn.connect();
+        try {
+            conn.connect(null, 10 * 1000, 10 * 1000);
+        } catch (SocketTimeoutException e) {
+            return null;
+        }
         logger.println("Connected via SSH.");
         return conn;
     }
