@@ -35,7 +35,6 @@ import jenkins.model.Jenkins;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -140,12 +139,7 @@ public class Slave extends AbstractCloudSlave {
      */
     @Override
     protected void _terminate(TaskListener listener) throws IOException, InterruptedException {
-
-        try {
-            getCloud().getApiClient().deleteDroplet(dropletId);
-        } catch (Exception e) {
-            LOG.log(Level.SEVERE, e.getMessage(), e);
-        }
+        DigitalOcean.tryDestroyDropletAsync(getCloud().getAuthToken(), dropletId);
     }
 
     public Integer getDropletId() {

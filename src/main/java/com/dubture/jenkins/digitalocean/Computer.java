@@ -65,18 +65,8 @@ public class Computer extends AbstractCloudComputer<Slave> {
     protected void onRemoved() {
         super.onRemoved();
 
-        try {
-            LOGGER.info("Slave removed, deleting droplet " + dropletId);
-            DigitalOcean apiClient = new DigitalOceanClient(authToken);
-            apiClient.deleteDroplet(dropletId);
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
-        }
-    }
-
-    public long getUptime() throws RequestUnsuccessfulException {
-        //TODO: calculate uptime
-        return 3600;
+        LOGGER.info("Slave removed, deleting droplet " + dropletId);
+        DigitalOcean.tryDestroyDropletAsync(authToken, dropletId);
     }
 
     public Cloud getCloud() {
