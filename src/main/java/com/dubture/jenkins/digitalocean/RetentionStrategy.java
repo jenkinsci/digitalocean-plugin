@@ -52,12 +52,32 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<Computer> {
     @Override
     protected boolean isIdleForTooLong(Computer computer) {
 
+    @Override
+    protected boolean isIdleForTooLong(Computer computer) {
         int idleTerminationTime = computer.getNode().getIdleTerminationTime();
 
         if (idleTerminationTime == 0) {
             return false;
         }
 
-        return System.currentTimeMillis() - computer.getIdleStartMilliseconds() > TimeUnit2.MINUTES.toMillis(idleTerminationTime);
+        if (idleTerminationTime > 0) {
+            return System.currentTimeMillis() - computer.getIdleStartMilliseconds() > TimeUnit2.MINUTES.toMillis(idleTerminationTime);
+        } else if (idleTerminationTime < 0 && computer.isIdle()) {
+            // DigitalOcaen charges for the next hour at 1:30, 2:30, 3:30, etc. up time, so kill the node
+            // if it idles and is about to get charged for next hour
+            long uptimeMinutes = TimeUnit2.MILLISECONDS.toMinutes(System.currentTimeMillis() - computer.getStartTimeMillis());
+
+            if (uptimeMinutes < 60) {
+                return false;
+            }
+
+            while (uptimeMinutes >= 60) {
+                uptimeMinutes -= 60;
+            }
+
+            return uptimeMinutes >= 25 && uptimeMinutes < 30;
+        }
+
+        return false;
     }
 }
