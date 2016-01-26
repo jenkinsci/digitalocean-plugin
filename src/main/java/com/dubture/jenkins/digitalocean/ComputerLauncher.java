@@ -128,6 +128,11 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
             successful = true;
         } catch (Exception e) {
+            try {
+                Jenkins.getInstance().removeNode(computer.getNode());
+            } catch (Exception ee) {
+                ee.printStackTrace(logger);
+            }
             e.printStackTrace(logger);
         } finally {
             if(cleanupConn != null && !successful) {
