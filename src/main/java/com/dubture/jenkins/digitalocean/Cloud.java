@@ -24,7 +24,6 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
@@ -36,31 +35,23 @@ import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.Label;
 import hudson.model.Node;
-import hudson.slaves.AbstractCloudImpl;
 import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
-import hudson.util.StreamTaskListener;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.servlet.ServletException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import static com.google.common.collect.Lists.newArrayList;
 
 /**
  *
@@ -74,10 +65,7 @@ import static com.google.common.collect.Lists.newArrayList;
  *
  * @author robert.gruendler@dubture.com
  */
-public class Cloud extends AbstractCloudImpl {
-
-    public static final String SLAVE_NAME_REGEX = "^jenkins-\\p{XDigit}{8}-\\p{XDigit}{4}-\\p{XDigit}{4}-\\p{XDigit}{4}-\\p{XDigit}{12}$";
-
+public class Cloud extends hudson.slaves.Cloud {
     /**
      * The DigitalOcean API auth token
      * @see "https://developers.digitalocean.com/documentation/v2/#authentication"
@@ -94,17 +82,25 @@ public class Cloud extends AbstractCloudImpl {
      */
     private final String privateKey;
 
+    private final Integer instanceCap;
+
     /**
      * List of {@link com.dubture.jenkins.digitalocean.SlaveTemplate}
      */
     private final List<? extends SlaveTemplate> templates;
 
-    /**
-     * Currently provisioned droplets
-     */
-    private static final Map<String, Integer> provisioningDroplets = new HashMap<String, Integer>();
-
     private static final Logger LOGGER = Logger.getLogger(Cloud.class.getName());
+
+    /**
+     * Sometimes nodes can be provisioned very fast (or in parallel), leading to more nodes being
+     * provisioned than the instance cap allows, as they all check DigitalOcean at about the same time
+     * right before provisioning and see that instance cap was not reached yet. So, for example, there
+     * might be a situation where 2 nodes see that 1 more node can be provisioned before the instance cap
+     * is reached, and they both happily provision, making one more node being provisioned than the instance
+     * cap allows. Thus we need a synchronization, so that only one node at a time could be provisioned, to
+     * remove the race condition.
+     */
+    private static final Object provisionSynchronizor = new Object();
 
     /**
      * Constructor parameters are injected via jelly in the jenkins global configuration
@@ -112,115 +108,73 @@ public class Cloud extends AbstractCloudImpl {
      * @param authToken A DigitalOcean V2 API authentication token, generated on their website.
      * @param privateKey An RSA private key in text format
      * @param sshKeyId An identifier (name) for an SSH key known to DigitalOcean
-     * @param instanceCapStr the maximum number of instances that can be started
+     * @param instanceCap the maximum number of instances that can be started
      * @param templates the templates for this cloud
      */
     @DataBoundConstructor
-    public Cloud(String name, String authToken, String privateKey, String sshKeyId, String instanceCapStr, List<? extends SlaveTemplate> templates) {
-        super(name, instanceCapStr);
+    public Cloud(String name, String authToken, String privateKey, String sshKeyId, String instanceCap, List<? extends SlaveTemplate> templates) {
+        super(name);
 
-        LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[] { name, instanceCapStr});
+        LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
 
         this.authToken = authToken;
         this.privateKey = privateKey;
         this.sshKeyId = Integer.parseInt(sshKeyId);
+        this.instanceCap = Integer.parseInt(instanceCap);
 
-        if(templates == null) {
+        if (templates == null) {
             this.templates = Collections.emptyList();
         } else {
             this.templates = templates;
         }
 
         LOGGER.info("Creating DigitalOcean cloud with " + this.templates.size() + " templates");
-
-        readResolve();
     }
 
-    protected Object readResolve() {
-        for (SlaveTemplate template : templates) {
-            template.parent = this;
+    public boolean isInstanceCapReached() throws RequestUnsuccessfulException, DigitalOceanException {
+        if (instanceCap == 0) {
+            return false;
         }
-        return this;
-    }
 
-    /**
-     * Count the number of droplets provisioned with the specified Image ID
-     * @param imageId an image slug to identify the slaves to count
-     * @return a count of active or new droplets
-     * @throws RequestUnsuccessfulException
-     * @throws DigitalOceanException
-     */
-    public int countCurrentDropletsSlaves(String imageId) throws RequestUnsuccessfulException, DigitalOceanException {
-        LOGGER.log(Level.INFO, "countCurrentDropletsSlaves(" + imageId + ")");
+        int slaveTotalInstanceCap = 0;
+        for (SlaveTemplate t : templates) {
+            int slaveInstanceCap = t.getInstanceCap();
+            if (slaveInstanceCap == 0) {
+                slaveTotalInstanceCap = Integer.MAX_VALUE;
+                break;
+            } else {
+                slaveTotalInstanceCap += t.getInstanceCap();
+            }
+        }
 
-        List<Droplet> availableDroplets = DigitalOcean.getDroplets(this.authToken);
         int count = 0;
 
+        LOGGER.log(Level.INFO, "cloud limit check");
+
+        List<Node> nodes = Jenkins.getInstance().getNodes();
+        for (Node n : nodes) {
+            if (DropletName.isDropletInstanceOfCloud(n.getDisplayName(), name)) {
+                count ++;
+            }
+        }
+
+        if (count >= Math.min(instanceCap, slaveTotalInstanceCap)) {
+            return true;
+        }
+
+        List<Droplet> availableDroplets = DigitalOcean.getDroplets(authToken);
+
+        count = 0;
         for (Droplet droplet : availableDroplets) {
-            if (imageId == null || imageId.equals(droplet.getImage().getId().toString())) {
-                if ((droplet.isActive() || droplet.isNew()) && droplet.getName().matches(SLAVE_NAME_REGEX)) {
-                    count++;
+            if (droplet.isActive() || droplet.isNew()) {
+                if (DropletName.isDropletInstanceOfCloud(droplet.getName(), name)) {
+                    count ++;
                 }
             }
         }
 
-        return count;
+        return count >= Math.min(instanceCap, slaveTotalInstanceCap);
     }
-
-    /**
-     * Adds an image to the list of currently provisioned droplets
-     *
-     * @param imageId the image slug of the provisioned slave
-     * @return whether the slave can be / has been provisioned (not sure which TBH)
-     */
-    private boolean addProvisionedSlave(String imageId) {
-
-        LOGGER.log(Level.INFO, "Adding provisioned slave " + imageId);
-
-        int estimatedTotalSlaves;
-        int estimatedDropletSlaves;
-        try {
-            estimatedTotalSlaves = countCurrentDropletsSlaves(null);
-            estimatedDropletSlaves = countCurrentDropletsSlaves(imageId);
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, e.getMessage(), e);
-            return false;
-        }
-
-        synchronized (provisioningDroplets) {
-            int currentProvisioning;
-
-            for (int dropletCount : provisioningDroplets.values()) {
-                estimatedTotalSlaves += dropletCount;
-            }
-            try {
-                currentProvisioning = provisioningDroplets.get(imageId);
-            }
-            catch (NullPointerException npe) {
-                currentProvisioning = 0;
-            }
-
-            estimatedDropletSlaves += currentProvisioning;
-
-            if(estimatedTotalSlaves >= getInstanceCap()) {
-                LOGGER.log(Level.INFO, "Total instance cap of " + getInstanceCap() + " reached, not provisioning.");
-                return false; // maxed out
-            }
-
-            if (estimatedDropletSlaves >= getInstanceCap()) {
-                LOGGER.log(Level.INFO, "Droplet Instance cap of " + getInstanceCap() + " reached for imageId " + imageId + ", not provisioning.");
-                return false; // maxed out
-            }
-
-            LOGGER.log(Level.INFO, "Provisioning for {0}; Estimated number of total slaves: {1}; " +
-                "Estimated number of slaves for imageId {0}: {2}",
-                new Object[] {imageId, estimatedTotalSlaves, estimatedDropletSlaves});
-
-            provisioningDroplets.put(imageId, currentProvisioning + 1);
-            return true;
-        }
-    }
-
 
     /**
      * The actual logic for provisioning a new droplet when it's needed by Jenkins.
@@ -230,88 +184,105 @@ public class Cloud extends AbstractCloudImpl {
      * @return
      */
     @Override
-    public Collection<NodeProvisioner.PlannedNode> provision(Label label, int excessWorkload) {
+    public Collection<NodeProvisioner.PlannedNode> provision(final Label label, int excessWorkload) {
+        synchronized (provisionSynchronizor) {
+            List<NodeProvisioner.PlannedNode> provisioningNodes = new ArrayList<NodeProvisioner.PlannedNode>();
+            try {
+                while (excessWorkload > 0) {
 
-        if (label != null) {
-            LOGGER.info("Provisioning digitalocean droplet for label " + label.getName() + ", excessWorkload " + excessWorkload);
-        } else {
-            LOGGER.info("Provisioning digitalocean droplet without label, excessWorkload " + excessWorkload);
-        }
+                    if (isInstanceCapReached()) {
+                        LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
+                        break;
+                    }
 
-        List<NodeProvisioner.PlannedNode> nodes = new ArrayList<NodeProvisioner.PlannedNode>();
-        final DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
-        final SlaveTemplate template = getTemplate(label);
+                    final SlaveTemplate template = getTemplateBelowInstanceCap(label);
+                    if (template == null) {
+                        break;
+                    }
 
-        try {
-            while (excessWorkload > 0) {
-                if (!addProvisionedSlave(template.getImageId())) {
-                    break;
-                }
+                    final String dropletName = DropletName.generateDropletName(name, template.getName());
 
-                final String dropletName = template.createDropletName();
-                nodes.add(new NodeProvisioner.PlannedNode(dropletName, Computer.threadPoolForRemoting.submit(new Callable<Node>() {
-
-                    public Node call() throws Exception {
-                        // TODO: record the output somewhere
-                        try {
-                            Slave slave = template.provision(apiClient, dropletName, privateKey, sshKeyId, new StreamTaskListener(System.out, Charset.defaultCharset()));
+                    provisioningNodes.add(new NodeProvisioner.PlannedNode(dropletName, Computer.threadPoolForRemoting.submit(new Callable<Node>() {
+                        public Node call() throws Exception {
+                            Slave slave;
+                            synchronized (provisionSynchronizor) {
+                                if (isInstanceCapReached()) {
+                                    LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
+                                    return null;
+                                }
+                                slave = template.provision(dropletName, name, authToken, privateKey, sshKeyId);
+                            }
                             Jenkins.getInstance().addNode(slave);
                             slave.toComputer().connect(false).get();
                             return slave;
-                        } finally {
-                            decrementDropletSlaveProvision(template.getImageId());
                         }
-                    }
-                }), template.getNumExecutors()));
+                    }), template.getNumExecutors()));
 
-                excessWorkload -= template.getNumExecutors();
+                    excessWorkload -= template.getNumExecutors();
+                }
+
+                LOGGER.info("Provisioning " + provisioningNodes.size() + " DigitalOcean nodes");
+
+                return provisioningNodes;
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, e.getMessage(), e);
+                return Collections.emptyList();
             }
-
-            LOGGER.info("Provisioning " + nodes.size() + " DigitalOcean nodes");
-            return nodes;
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, e.getMessage(), e);
-            return Collections.emptyList();
-        }
-    }
-
-    /**
-     * Decrement the count for the currently provisioned droplets with the specified Image ID.
-     *
-     * @param imageId the image slug of the de-provisioned slave
-     */
-    private void decrementDropletSlaveProvision(String imageId) {
-        LOGGER.log(Level.INFO, "Decrementing provision slave " + imageId);
-        synchronized (provisioningDroplets) {
-            int currentProvisioning;
-            try {
-                currentProvisioning = provisioningDroplets.get(imageId);
-            } catch(NullPointerException npe) {
-                return;
-            }
-            provisioningDroplets.put(imageId, Math.max(currentProvisioning - 1, 0));
         }
     }
 
     @Override
     public boolean canProvision(Label label) {
-        return Optional.fromNullable(getTemplate(label)).isPresent();
+        synchronized (provisionSynchronizor) {
+            try {
+                SlaveTemplate template = getTemplateBelowInstanceCap(label);
+                if (template == null) {
+                    LOGGER.log(Level.INFO, "No slaves could provision for label " + label.getDisplayName() + " because they either dodn't support such a label or have reached the instance cap.");
+                    return false;
+                }
+
+                if (isInstanceCapReached()) {
+                    LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
+                    return false;
+                }
+
+
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, e.getMessage(), e);
+            }
+
+            return true;
+        }
     }
 
-    public List<SlaveTemplate> getTemplates() {
-        LOGGER.log(Level.INFO, "getTemplates");
-        return Collections.unmodifiableList(templates);
-    }
+    public List<SlaveTemplate> getTemplates(Label label) {
+        List<SlaveTemplate> matchingTemplates = new ArrayList<SlaveTemplate>();
 
-    public SlaveTemplate getTemplate(Label label) {
         for (SlaveTemplate t : templates) {
-            if(label == null && t.getLabelSet().size() != 0) {
+            if (label == null && t.getLabelSet().size() != 0) {
                 continue;
             }
-            if((label == null && t.getLabelSet().size() == 0) || label.matches(t.getLabelSet())) {
-                return t;
+            if ((label == null && t.getLabelSet().size() == 0) || label.matches(t.getLabelSet())) {
+                matchingTemplates.add(t);
             }
         }
+
+        return matchingTemplates;
+    }
+
+    public SlaveTemplate getTemplateBelowInstanceCap(Label label) {
+        List<SlaveTemplate> matchingTempaltes = getTemplates(label);
+
+        try {
+            for (SlaveTemplate t : matchingTempaltes) {
+                if (!t.isInstanceCapReached(authToken, name)) {
+                    return t;
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, e.getMessage(), e);
+        }
+
         return null;
     }
 
@@ -331,8 +302,16 @@ public class Cloud extends AbstractCloudImpl {
         return sshKeyId;
     }
 
+    public int getInstanceCap() {
+        return instanceCap;
+    }
+
     public DigitalOceanClient getApiClient() {
         return new DigitalOceanClient(authToken);
+    }
+
+    public List<SlaveTemplate> getTemplates() {
+        return Collections.unmodifiableList(templates);
     }
 
     @Extension
@@ -346,7 +325,7 @@ public class Cloud extends AbstractCloudImpl {
             return "Digital Ocean";
         }
 
-        public FormValidation doTestConnection(@QueryParameter String authToken) throws IOException, ServletException {
+        public FormValidation doTestConnection(@QueryParameter String authToken) {
             try {
                 DigitalOceanClient client = new DigitalOceanClient(authToken);
                 client.getAvailableDroplets(1);
@@ -359,13 +338,15 @@ public class Cloud extends AbstractCloudImpl {
 
         public FormValidation doCheckName(@QueryParameter String name) {
             if (Strings.isNullOrEmpty(name)) {
-                return FormValidation.error("Name must be set");
+                return FormValidation.error("Must be set");
+            } else if (!DropletName.isValidCloudName(name)) {
+                return FormValidation.error("Must consist of A-Z, a-z, 0-9 and . symbols");
             } else {
                 return FormValidation.ok();
             }
         }
 
-        public FormValidation doCheckAuthToken(@QueryParameter String authToken) {
+        public static FormValidation doCheckAuthToken(@QueryParameter String authToken) {
             if (Strings.isNullOrEmpty(authToken)) {
                 return FormValidation.error("Auth token must be set");
             } else {
@@ -373,7 +354,7 @@ public class Cloud extends AbstractCloudImpl {
             }
         }
 
-        public FormValidation doCheckPrivateKey(@QueryParameter String value) throws IOException, ServletException {
+        public FormValidation doCheckPrivateKey(@QueryParameter String value) throws IOException {
             boolean hasStart=false,hasEnd=false;
             BufferedReader br = new BufferedReader(new StringReader(value));
             String line;
@@ -390,8 +371,31 @@ public class Cloud extends AbstractCloudImpl {
             return FormValidation.ok();
         }
 
-        public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authToken) throws Exception {
+        public FormValidation doCheckSshKeyId(@QueryParameter String authToken) {
+            return doCheckAuthToken(authToken);
+        }
 
+        public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {
+            if (Strings.isNullOrEmpty(instanceCap)) {
+                return FormValidation.error("Instance cap must be set");
+            } else {
+                int instanceCapNumber;
+
+                try {
+                    instanceCapNumber = Integer.parseInt(instanceCap);
+                } catch (Exception e) {
+                    return FormValidation.error("Instance cap must be a number");
+                }
+
+                if (instanceCapNumber < 0) {
+                    return FormValidation.error("Instance cap must be a positive number");
+                }
+
+                return FormValidation.ok();
+            }
+        }
+
+        public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
             List<Key> availableSizes = DigitalOcean.getAvailableKeys(authToken);
             ListBoxModel model = new ListBoxModel();
 

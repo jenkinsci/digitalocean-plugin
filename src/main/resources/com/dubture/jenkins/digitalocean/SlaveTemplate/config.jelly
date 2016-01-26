@@ -22,9 +22,15 @@
   ~ THE SOFTWARE.
   -->
 
+<?jelly escape-by-default='true'?>
+
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
     <table width="100%">
+
+        <f:entry title="Unique name" field="name">
+            <f:textbox/>
+        </f:entry>
 
         <f:entry title="Image" field="imageId">
             <f:select />
@@ -36,6 +42,14 @@
 
         <f:entry title="Region" field="regionId">
             <f:select />
+        </f:entry>
+
+        <f:entry title="Run as user" field="username">
+            <f:textbox default="root" />
+        </f:entry>
+
+        <f:entry title="Jenkins workspace directory path" field="workspacePath">
+            <f:textbox default="/jenkins/" />
         </f:entry>
 
         <f:entry title="Labels" field="labelString">
@@ -50,11 +64,15 @@
             <f:textbox default="10" />
         </f:entry>
 
-        <f:entry title="User Data" field="userData">
+        <f:entry title="Instance cap" field="instanceCap">
+            <f:textbox default="2"/>
+        </f:entry>
+
+        <f:entry title="User data" field="userData">
             <f:textarea/>
         </f:entry>
 
-        <f:entry title="Init Script" field="initScript">
+        <f:entry title="Init script" field="initScript">
             <f:textarea/>
         </f:entry>
 

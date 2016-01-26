@@ -22,24 +22,20 @@
   ~ THE SOFTWARE.
   -->
 
-<?jelly escape-by-default='true'?>
+<div>
+    You can place the upward limit to the number of DigitalOcean droplets that
+    Jenkins may launch for this particular Cloud. A cloud is identified by
+    "Unique name" field.
+    This is useful for avoiding surprises in the billing statement.
 
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <P>
+    For example, if this field is 3, Jenkins will only launch a new instance as
+    long as total number of droplets associated with this Cloud on DigitalOcean
+    doesn't exceed this number. In this way, even in the worst case of Jenkins
+    starting instances and forgetting about them, you have an upper bound in
+    the number of instances that are concurrently executed.
 
-    <table width="100%">
-
-        <f:entry title="Labels" field="labelString">
-            <f:textbox/>
-        </f:entry>
-
-        <f:entry title="Number of executors" field="numExecutors">
-            <f:textbox/>
-        </f:entry>
-
-        <f:entry title="Idle termination time" field="idleTerminationInMinutes">
-            <f:textbox/>
-        </f:entry>
-
-    </table>
-
-</j:jelly>
+    <p>
+    Set to 0 to remove the cap (why would you want that though?).
+    Note that DigitalOcean appears to have its own instance cap at 5.
+</div>

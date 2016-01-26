@@ -22,25 +22,27 @@
   ~ THE SOFTWARE.
   -->
 
+<?jelly escape-by-default='true'?>
+
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
-    <f:entry title="Name" field="name">
+    <f:entry title="Unique name" field="name">
         <f:textbox/>
     </f:entry>
 
-    <f:entry title="Auth Token" field="authToken">
+    <f:entry title="Auth token" field="authToken">
         <f:password />
     </f:entry>
 
-    <f:entry title="SSH Key" field="sshKeyId">
+    <f:entry title="SSH public key" field="sshKeyId">
         <f:select />
     </f:entry>
 
-    <f:entry title="Private Key" field="privateKey">
+    <f:entry title="SSH private key" field="privateKey">
         <f:textarea/>
     </f:entry>
 
-    <f:entry title="Instance Cap" field="instanceCapStr">
+    <f:entry title="Instance cap" field="instanceCap">
         <f:textbox default="5"/>
     </f:entry>
 
