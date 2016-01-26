@@ -68,6 +68,8 @@ public class Slave extends AbstractCloudSlave {
 
     public final String jvmOpts;
 
+    private final long startTimeMillis;
+
     /**
      * {@link Slave}s are created by {@link SlaveTemplate}s
      */
@@ -87,6 +89,7 @@ public class Slave extends AbstractCloudSlave {
         this.userData = userData;
         this.initScript = initScript;
         this.jvmOpts = jvmOpts;
+        startTimeMillis = System.currentTimeMillis();
     }
 
     @Extension
@@ -140,6 +143,10 @@ public class Slave extends AbstractCloudSlave {
     @Override
     protected void _terminate(TaskListener listener) throws IOException, InterruptedException {
         DigitalOcean.tryDestroyDropletAsync(getCloud().getAuthToken(), dropletId);
+    }
+
+    public long getStartTimeMillis() {
+        return startTimeMillis;
     }
 
     public Integer getDropletId() {

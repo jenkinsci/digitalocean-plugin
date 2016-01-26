@@ -24,14 +24,12 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.myjeeva.digitalocean.DigitalOcean;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import hudson.slaves.AbstractCloudComputer;
 
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -57,7 +55,7 @@ public class Computer extends AbstractCloudComputer<Slave> {
     }
 
     public Droplet updateInstanceDescription() throws RequestUnsuccessfulException, DigitalOceanException {
-        DigitalOcean apiClient = new DigitalOceanClient(authToken);
+        DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
         return apiClient.getDropletInfo(dropletId);
     }
 
@@ -80,5 +78,9 @@ public class Computer extends AbstractCloudComputer<Slave> {
     public String getRemoteAdmin() {
         return getNode().getRemoteAdmin();
     }
+    public long getStartTimeMillis() {
+        return getNode().getStartTimeMillis();
+    }
+
 
 }
