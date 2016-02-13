@@ -73,7 +73,7 @@ public class Computer extends AbstractCloudComputer<Slave> {
     }
 
     public int getSshPort() {
-        return 22;
+        return getNode().getSshPort();
     }
 
     public String getRemoteAdmin() {

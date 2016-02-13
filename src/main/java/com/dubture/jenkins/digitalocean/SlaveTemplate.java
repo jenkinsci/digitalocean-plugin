@@ -105,6 +105,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final String workspacePath;
 
+    private final Integer sshPort;
+
     private final Integer instanceCap;
 
     /**
@@ -135,8 +137,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      */
     @DataBoundConstructor
     public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
-                         String idleTerminationInMinutes, String numExecutors, String labelString, String instanceCap,
-                         String userData, String initScript) {
+                         Integer sshPort, String idleTerminationInMinutes, String numExecutors, String labelString,
+                         String instanceCap, String userData, String initScript) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
@@ -147,6 +149,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.regionId = regionId;
         this.username = username;
         this.workspacePath = workspacePath;
+        this.sshPort = sshPort;
 
         this.idleTerminationInMinutes = tryParseInteger(idleTerminationInMinutes, 10);
         this.numExecutors = tryParseInteger(numExecutors, 1);
@@ -243,11 +246,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 "Computer running on DigitalOcean with name: " + droplet.getName(),
                 droplet.getId(),
                 privateKey,
-                workspacePath,
                 username,
+                workspacePath,
+                sshPort,
                 numExecutors,
                 idleTerminationInMinutes,
-                userData,
                 Node.Mode.NORMAL,
                 labels,
                 new ComputerLauncher(),
@@ -310,6 +313,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
                 return FormValidation.ok();
             }
+        }
+
+        public FormValidation doCheckSshPort(@QueryParameter String sshPort) {
+            return doCheckNonNegativeNumber(sshPort);
         }
 
         public FormValidation doCheckNumExecutors(@QueryParameter String numExecutors) {
@@ -466,6 +473,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public String getInitScript() {
         return initScript;
+    }
+
+    public int getSshPort() {
+        return sshPort;
     }
 
     private static int tryParseInteger(final String integerString, final int defaultValue) {

@@ -98,7 +98,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
             logger.println("Copying slave.jar");
             scp.put(Jenkins.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar","/tmp");
-            String jvmOpts = Util.fixNull(computer.getNode().jvmOpts);
+            String jvmOpts = Util.fixNull(computer.getNode().getJvmOpts());
             String launchString = "java " + jvmOpts + " -jar /tmp/slave.jar";
             logger.println("Launching slave agent: " + launchString);
             final Session sess = conn.openSession();

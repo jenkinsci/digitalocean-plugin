@@ -57,25 +57,25 @@ public class Slave extends AbstractCloudSlave {
 
     private final int idleTerminationTime;
 
-    public final String initScript;
+    private final String initScript;
 
     private final Integer dropletId;
 
     private final String privateKey;
 
-    private final String userData;
+    private final String remoteAdmin;
 
-    private String remoteAdmin;
-
-    public final String jvmOpts;
+    private final String jvmOpts;
 
     private final long startTimeMillis;
+
+    private final int sshPort;
 
     /**
      * {@link Slave}s are created by {@link SlaveTemplate}s
      */
     public Slave(String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
-                 String remoteFS, String remoteAdmin, int numExecutors, int idleTerminationTime, String userData,
+                 String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
                  Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
                  List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmOpts)
             throws Descriptor.FormException, IOException {
@@ -87,9 +87,9 @@ public class Slave extends AbstractCloudSlave {
         this.privateKey = privateKey;
         this.remoteAdmin = remoteAdmin;
         this.idleTerminationTime = idleTerminationTime;
-        this.userData = userData;
         this.initScript = initScript;
         this.jvmOpts = jvmOpts;
+        this.sshPort = sshPort;
         startTimeMillis = System.currentTimeMillis();
     }
 
@@ -162,11 +162,15 @@ public class Slave extends AbstractCloudSlave {
         return idleTerminationTime;
     }
 
-    public String getUserData() {
-        return userData;
-    }
-
     public String getInitScript() {
         return initScript;
+    }
+
+    public String getJvmOpts() {
+        return jvmOpts;
+    }
+
+    public int getSshPort() {
+        return sshPort;
     }
 }
