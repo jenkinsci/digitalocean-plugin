@@ -2,6 +2,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
+ *               2016 Maxim Biro <nurupo.contributions@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +43,10 @@ import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.SocketTimeoutException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
 
 import static java.lang.String.format;
 
@@ -56,13 +61,6 @@ import static java.lang.String.format;
  * @author robert.gruendler@dubture.com
  */
 public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
-
-    private enum BootstrapResult {
-        FAILED,
-        SAMEUSER,
-        RECONNECT
-    }
-
     /**
      * Connects to the given {@link Computer} via SSH and installs Java/Jenkins agent if necessary.
      */
@@ -72,35 +70,22 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         Computer computer = (Computer)_computer;
         PrintStream logger = listener.getLogger();
 
-        final Connection bootstrapConn;
+        Date startDate = new Date();
+        logger.println("Start time: " + getUtcDate(startDate));
+
         final Connection conn;
         Connection cleanupConn = null;
         boolean successful = false;
 
         try {
-            bootstrapConn = connectToSsh(computer, logger);
-
-            switch (bootstrap(bootstrapConn, computer, logger)) {
-                case FAILED:
-                    logger.println("bootstrap failed");
-                    listener.fatalError("bootstrap failed");
-                    return; // bootstrap closed for us.
-
-                case SAMEUSER:
-                    cleanupConn = bootstrapConn; // take over the connection
-                    logger.println("take over connection");
-
-                case RECONNECT:// connect fresh as ROOT
-                    logger.println("connect fresh as root");
-                    cleanupConn = connectToSsh(computer, logger);
-
-                    if (!cleanupConn.authenticateWithPublicKey(computer.getRemoteAdmin(), computer.getNode().getPrivateKey().toCharArray(), "")) {
-                        logger.println("Authentication failed");
-                        return; // failed to connect as root.
-                    }
+            conn = connectToSsh(computer, logger);
+            cleanupConn = conn;
+            logger.println("Authenticating as " + computer.getRemoteAdmin());
+            if (!conn.authenticateWithPublicKey(computer.getRemoteAdmin(), computer.getNode().getPrivateKey().toCharArray(), "")) {
+                logger.println("Authentication failed");
+                throw new Exception("Authentication failed");
             }
 
-            conn = cleanupConn;
             final SCPClient scp = conn.createSCPClient();
 
             if (!runInitScript(computer, logger, conn, scp)) {
@@ -113,7 +98,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
             logger.println("Copying slave.jar");
             scp.put(Jenkins.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar","/tmp");
-            String jvmOpts = Util.fixNull(computer.getNode().jvmOpts);
+            String jvmOpts = Util.fixNull(computer.getNode().getJvmOpts());
             String launchString = "java " + jvmOpts + " -jar /tmp/slave.jar";
             logger.println("Launching slave agent: " + launchString);
             final Session sess = conn.openSession();
@@ -128,8 +113,16 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
             successful = true;
         } catch (Exception e) {
+            try {
+                Jenkins.getInstance().removeNode(computer.getNode());
+            } catch (Exception ee) {
+                ee.printStackTrace(logger);
+            }
             e.printStackTrace(logger);
         } finally {
+            Date endDate = new Date();
+            logger.println("Done setting up at: " + getUtcDate(endDate));
+            logger.println("Done in " + TimeUnit2.MILLISECONDS.toSeconds(endDate.getTime() - startDate.getTime()) + " seconds");
             if(cleanupConn != null && !successful) {
                 cleanupConn.close();
             }
@@ -190,43 +183,6 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         return true;
     }
 
-    private BootstrapResult bootstrap(Connection bootstrapConn, Computer computer, PrintStream logger) throws IOException, InterruptedException {
-        logger.println("bootstrap()" );
-        boolean closeBootstrap = true;
-
-        if (bootstrapConn.isAuthenticationComplete()) {
-            return BootstrapResult.SAMEUSER;
-        }
-
-        try {
-            int tries = 20;
-            boolean isAuthenticated = false;
-
-            while (tries-- > 0) {
-                logger.println("Authenticating as " + computer.getRemoteAdmin());
-
-                isAuthenticated = bootstrapConn.authenticateWithPublicKey(computer.getRemoteAdmin(), computer.getNode().getPrivateKey().toCharArray(), "");
-                if (isAuthenticated) {
-                    break;
-                }
-                logger.println("Authentication failed. Trying again...");
-                Thread.sleep(10000);
-            }
-            if (!isAuthenticated) {
-                logger.println("Authentication failed");
-                return BootstrapResult.FAILED;
-            }
-            closeBootstrap = false;
-            return BootstrapResult.SAMEUSER;
-        } catch (Exception e) {
-            e.printStackTrace(logger);
-            return BootstrapResult.FAILED;
-        } finally {
-            if (closeBootstrap)
-                bootstrapConn.close();
-        }
-    }
-
     private Connection connectToSsh(Computer computer, PrintStream logger) throws RequestUnsuccessfulException, DigitalOceanException {
 
         // TODO: make configurable?
@@ -256,7 +212,10 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                     else {
                         int port = computer.getSshPort();
 
-                        return getDropletConnection(host, port, logger);
+                        Connection conn = getDropletConnection(host, port, logger);
+                        if (conn != null) {
+                            return conn;
+                        }
                     }
                 } catch (IOException e) {
                     // Ignore, we'll retry.
@@ -290,7 +249,11 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     private Connection getDropletConnection(String host, int port, PrintStream logger) throws IOException {
         logger.println("Connecting to " + host + " on port " + port + ". ");
         Connection conn = new Connection(host, port);
-        conn.connect();
+        try {
+            conn.connect(null, 10 * 1000, 10 * 1000);
+        } catch (SocketTimeoutException e) {
+            return null;
+        }
         logger.println("Connected via SSH.");
         return conn;
     }
@@ -332,5 +295,11 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         catch (InterruptedException e) {
             // Ignore
         }
+    }
+
+    private String getUtcDate(Date date) {
+        SimpleDateFormat utcFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
+        utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return utcFormat.format(date);
     }
 }

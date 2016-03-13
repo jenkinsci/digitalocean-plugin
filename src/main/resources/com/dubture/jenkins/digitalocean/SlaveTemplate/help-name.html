@@ -1,7 +1,7 @@
 <!--
   ~ The MIT License (MIT)
   ~
-  ~ Copyright (c) 2014 robert.gruendler@dubture.com
+  ~ Copyright (c) 2016 Maxim Biro <nurupo.contributions@gmail.com>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -22,24 +22,13 @@
   ~ THE SOFTWARE.
   -->
 
-<?jelly escape-by-default='true'?>
+<div>
+    An unique name for the Slave Template / Droplet.
 
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <P>
+    Note that no Slave Template should have the same name within a Cloud, thus why it's "unique".
 
-    <table width="100%">
-
-        <f:entry title="Labels" field="labelString">
-            <f:textbox/>
-        </f:entry>
-
-        <f:entry title="Number of executors" field="numExecutors">
-            <f:textbox/>
-        </f:entry>
-
-        <f:entry title="Idle termination time" field="idleTerminationInMinutes">
-            <f:textbox/>
-        </f:entry>
-
-    </table>
-
-</j:jelly>
+    <P>
+    As the Slave Template name is used in droplet names, only A-Z, a-z. 0-9 and . can be
+    used in the name.
+</div>

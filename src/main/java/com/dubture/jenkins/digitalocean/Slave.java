@@ -2,6 +2,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
+ *               2016 Maxim Biro <nurupo.contributions@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +36,6 @@ import jenkins.model.Jenkins;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -57,23 +57,25 @@ public class Slave extends AbstractCloudSlave {
 
     private final int idleTerminationTime;
 
-    public final String initScript;
+    private final String initScript;
 
     private final Integer dropletId;
 
     private final String privateKey;
 
-    private final String userData;
+    private final String remoteAdmin;
 
-    private String remoteAdmin;
+    private final String jvmOpts;
 
-    public final String jvmOpts;
+    private final long startTimeMillis;
+
+    private final int sshPort;
 
     /**
      * {@link Slave}s are created by {@link SlaveTemplate}s
      */
     public Slave(String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
-                 String remoteFS, String remoteAdmin, int numExecutors, int idleTerminationTime, String userData,
+                 String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
                  Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
                  List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmOpts)
             throws Descriptor.FormException, IOException {
@@ -85,9 +87,10 @@ public class Slave extends AbstractCloudSlave {
         this.privateKey = privateKey;
         this.remoteAdmin = remoteAdmin;
         this.idleTerminationTime = idleTerminationTime;
-        this.userData = userData;
         this.initScript = initScript;
         this.jvmOpts = jvmOpts;
+        this.sshPort = sshPort;
+        startTimeMillis = System.currentTimeMillis();
     }
 
     @Extension
@@ -140,12 +143,11 @@ public class Slave extends AbstractCloudSlave {
      */
     @Override
     protected void _terminate(TaskListener listener) throws IOException, InterruptedException {
+        DigitalOcean.tryDestroyDropletAsync(getCloud().getAuthToken(), dropletId);
+    }
 
-        try {
-            getCloud().getApiClient().deleteDroplet(dropletId);
-        } catch (Exception e) {
-            LOG.log(Level.SEVERE, e.getMessage(), e);
-        }
+    public long getStartTimeMillis() {
+        return startTimeMillis;
     }
 
     public Integer getDropletId() {
@@ -160,11 +162,15 @@ public class Slave extends AbstractCloudSlave {
         return idleTerminationTime;
     }
 
-    public String getUserData() {
-        return userData;
-    }
-
     public String getInitScript() {
         return initScript;
+    }
+
+    public String getJvmOpts() {
+        return jvmOpts;
+    }
+
+    public int getSshPort() {
+        return sshPort;
     }
 }

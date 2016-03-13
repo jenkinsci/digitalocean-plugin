@@ -2,6 +2,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
+ *               2016 Maxim Biro <nurupo.contributions@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,16 +26,16 @@
 package com.dubture.jenkins.digitalocean;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.google.common.base.Strings;
+import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
@@ -51,8 +52,8 @@ import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.labels.LabelAtom;
 import hudson.slaves.NodeProperty;
+import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
-import hudson.util.StreamTaskListener;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -64,7 +65,7 @@ import static com.google.common.collect.Lists.newArrayList;
  *
  * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * <p>The {@link SlaveTemplate#provision(DigitalOceanClient, String, String, Integer, StreamTaskListener)} method
+ * <p>The {@link SlaveTemplate#provision(String, String, String, String, Integer)} method
  * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
@@ -72,7 +73,7 @@ import static com.google.common.collect.Lists.newArrayList;
 @SuppressWarnings("unused")
 public class SlaveTemplate implements Describable<SlaveTemplate> {
 
-    private static final String DROPLET_PREFIX = "jenkins-";
+    private final String name;
 
     private final String labelString;
 
@@ -100,6 +101,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      */
     private final String regionId;
 
+    private final String username;
+
+    private final String workspacePath;
+
+    private final Integer sshPort;
+
+    private final Integer instanceCap;
+
     /**
      * User-supplied data for configuring a droplet
      */
@@ -113,10 +122,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private transient Set<LabelAtom> labelSet;
 
-    protected transient Cloud parent;
-
     private static final Logger LOGGER = Logger.getLogger(SlaveTemplate.class.getName());
-
 
     /**
      * Data is injected from the global Jenkins configuration via jelly.
@@ -130,20 +136,26 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param initScript setup script to configure the slave
      */
     @DataBoundConstructor
-    public SlaveTemplate(String imageId, String sizeId, String regionId, String idleTerminationInMinutes,
-            String numExecutors, String labelString, String userData, String initScript) {
+    public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
+                         Integer sshPort, String idleTerminationInMinutes, String numExecutors, String labelString,
+                         String instanceCap, String userData, String initScript) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
-            new Object[] { imageId, sizeId, regionId});
+                new Object[] { imageId, sizeId, regionId});
 
+        this.name = name;
         this.imageId = imageId;
         this.sizeId = sizeId;
         this.regionId = regionId;
+        this.username = username;
+        this.workspacePath = workspacePath;
+        this.sshPort = sshPort;
 
         this.idleTerminationInMinutes = tryParseInteger(idleTerminationInMinutes, 10);
         this.numExecutors = tryParseInteger(numExecutors, 1);
         this.labelString = labelString;
         this.labels = Util.fixNull(labelString);
+        this.instanceCap = Integer.parseInt(instanceCap);
 
         this.userData = userData;
         this.initScript = initScript;
@@ -151,27 +163,48 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         readResolve();
     }
 
-    /**
-     * Creates a new droplet on DigitalOcean to be used as a Jenkins slave.
-     *
-     * @param apiClient the v2 API client to use
-     * @param privateKey the RSA private key to use
-     * @param sshKeyId the SSH key name name to use
-     * @param listener the listener on which to report progress
-     * @return the provisioned {@link Slave}
-     * @throws IOException
-     * @throws RequestUnsuccessfulException
-     * @throws Descriptor.FormException
-     */
-    public Slave provision(DigitalOceanClient apiClient, String dropletName, String privateKey, Integer sshKeyId, StreamTaskListener listener)
+    public boolean isInstanceCapReached(String authToken, String cloudName) throws RequestUnsuccessfulException, DigitalOceanException {
+        if (instanceCap == 0) {
+            return false;
+        }
+        LOGGER.log(Level.INFO, "slave limit check");
+
+        int count = 0;
+        List<Node> nodes = Jenkins.getInstance().getNodes();
+        for (Node n : nodes) {
+            if (DropletName.isDropletInstanceOfSlave(n.getDisplayName(), cloudName, name)) {
+                count++;
+            }
+        }
+
+        if (count >= instanceCap) {
+            return true;
+        }
+
+        count = 0;
+        List<Droplet> availableDroplets = DigitalOcean.getDroplets(authToken);
+        for (Droplet droplet : availableDroplets) {
+            if ((droplet.isActive() || droplet.isNew())) {
+                if (DropletName.isDropletInstanceOfSlave(droplet.getName(), cloudName, name)) {
+                    count++;
+                }
+            }
+        }
+
+        return count >= instanceCap;
+    }
+
+    public Slave provision(String dropletName, String cloudName, String authToken, String privateKey, Integer sshKeyId)
             throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
 
         LOGGER.log(Level.INFO, "Provisioning slave...");
 
-        PrintStream logger = listener.getLogger();
         try {
-            logger.printf("Starting to provision digital ocean droplet using image: %s, region: %s, sizeId: %s%n",
-                imageId, regionId, sizeId);
+            LOGGER.log(Level.INFO, "Starting to provision digital ocean droplet using image: " + imageId + " region: " + regionId + ", sizeId: " + sizeId);
+
+            if (isInstanceCapReached(authToken, cloudName)) {
+                throw new AssertionError();
+            }
 
             // create a new droplet
             Droplet droplet = new Droplet();
@@ -185,12 +218,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 droplet.setUserData(userData);
             }
 
-            logger.println("Creating slave with new droplet " + dropletName);
+            LOGGER.log(Level.INFO, "Creating slave with new droplet " + dropletName);
 
+            DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
             Droplet createdDroplet = apiClient.createDroplet(droplet);
-            return newSlave(createdDroplet, privateKey);
+
+            return newSlave(cloudName, createdDroplet, privateKey);
         } catch (Exception e) {
-            e.printStackTrace(logger);
+            LOGGER.log(Level.WARNING, e.getMessage(), e);
             throw new AssertionError();
         }
     }
@@ -203,19 +238,19 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @throws IOException
      * @throws Descriptor.FormException
      */
-    private Slave newSlave(Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
+    private Slave newSlave(String cloudName, Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
         LOGGER.log(Level.INFO, "Creating new slave...");
         return new Slave(
-                getParent().getName(),
+                cloudName,
                 droplet.getName(),
                 "Computer running on DigitalOcean with name: " + droplet.getName(),
                 droplet.getId(),
                 privateKey,
-                "/jenkins",
-                "root",
+                username,
+                workspacePath,
+                sshPort,
                 numExecutors,
                 idleTerminationInMinutes,
-                userData,
                 Node.Mode.NORMAL,
                 labels,
                 new ComputerLauncher(),
@@ -232,6 +267,108 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         @Override
         public String getDisplayName() {
             return null;
+        }
+
+        public FormValidation doCheckName(@QueryParameter String name) {
+            if (Strings.isNullOrEmpty(name)) {
+                return FormValidation.error("Must be set");
+            } else if (!DropletName.isValidSlaveName(name)) {
+                return FormValidation.error("Must consist of A-Z, a-z, 0-9 and . symbols");
+            } else {
+                return FormValidation.ok();
+            }
+        }
+
+        public FormValidation doCheckUsername(@QueryParameter String username) {
+            if (Strings.isNullOrEmpty(username)) {
+                return FormValidation.error("Must be set");
+            } else {
+                return FormValidation.ok();
+            }
+        }
+
+        public FormValidation doCheckWorkspacePath(@QueryParameter String workspacePath) {
+            if (Strings.isNullOrEmpty(workspacePath)) {
+                return FormValidation.error("Must be set");
+            } else {
+                return FormValidation.ok();
+            }
+        }
+
+        private static FormValidation doCheckNonNegativeNumber(String stringNumber) {
+            if (Strings.isNullOrEmpty(stringNumber)) {
+                return FormValidation.error("Must be set");
+            } else {
+                int number;
+
+                try {
+                    number = Integer.parseInt(stringNumber);
+                } catch (Exception e) {
+                    return FormValidation.error("Must be a number");
+                }
+
+                if (number < 0) {
+                    return FormValidation.error("Must be a nonnegative number");
+                }
+
+                return FormValidation.ok();
+            }
+        }
+
+        public FormValidation doCheckSshPort(@QueryParameter String sshPort) {
+            return doCheckNonNegativeNumber(sshPort);
+        }
+
+        public FormValidation doCheckNumExecutors(@QueryParameter String numExecutors) {
+            if (Strings.isNullOrEmpty(numExecutors)) {
+                return FormValidation.error("Must be set");
+            } else {
+                int number;
+
+                try {
+                    number = Integer.parseInt(numExecutors);
+                } catch (Exception e) {
+                    return FormValidation.error("Must be a number");
+                }
+
+                if (number <= 0) {
+                    return FormValidation.error("Must be a positive number");
+                }
+
+                return FormValidation.ok();
+            }
+        }
+
+        public FormValidation doCheckIdleTerminationInMinutes(@QueryParameter String idleTerminationInMinutes) {
+            if (Strings.isNullOrEmpty(idleTerminationInMinutes)) {
+                return FormValidation.error("Must be set");
+            } else {
+                int number;
+
+                try {
+                    number = Integer.parseInt(idleTerminationInMinutes);
+                } catch (Exception e) {
+                    return FormValidation.error("Must be a number");
+                }
+
+                return FormValidation.ok();
+            }
+        }
+
+        public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {
+            return doCheckNonNegativeNumber(instanceCap);
+        }
+
+        public FormValidation doCheckSizeId(@RelativePath("..") @QueryParameter String authToken) {
+            return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+        }
+
+        public FormValidation doCheckImageId(@RelativePath("..") @QueryParameter String authToken) {
+            return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+        }
+
+        public FormValidation doCheckRegionId(@RelativePath("..") @QueryParameter String authToken) {
+            return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
         public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
@@ -282,8 +419,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return Jenkins.getInstance().getDescriptor(getClass());
     }
 
-    public String createDropletName() {
-        return DROPLET_PREFIX + UUID.randomUUID().toString();
+    public String getName() {
+        return name;
     }
 
     public String getSizeId() {
@@ -306,12 +443,16 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return labelSet;
     }
 
-    public Cloud getParent() {
-        return parent;
-    }
-
     public String getImageId() {
         return imageId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getWorkspacePath() {
+        return workspacePath;
     }
 
     public int getNumExecutors() {
@@ -322,12 +463,20 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return idleTerminationInMinutes;
     }
 
+    public int getInstanceCap() {
+        return instanceCap;
+    }
+
     public String getUserData() {
         return userData;
     }
 
     public String getInitScript() {
         return initScript;
+    }
+
+    public int getSshPort() {
+        return sshPort;
     }
 
     private static int tryParseInteger(final String integerString, final int defaultValue) {

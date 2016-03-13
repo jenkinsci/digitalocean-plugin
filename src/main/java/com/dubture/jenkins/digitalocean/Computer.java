@@ -2,6 +2,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
+ *               2016 Maxim Biro <nurupo.contributions@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,14 +25,12 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.myjeeva.digitalocean.DigitalOcean;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import hudson.slaves.AbstractCloudComputer;
 
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -57,7 +56,7 @@ public class Computer extends AbstractCloudComputer<Slave> {
     }
 
     public Droplet updateInstanceDescription() throws RequestUnsuccessfulException, DigitalOceanException {
-        DigitalOcean apiClient = new DigitalOceanClient(authToken);
+        DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
         return apiClient.getDropletInfo(dropletId);
     }
 
@@ -65,18 +64,8 @@ public class Computer extends AbstractCloudComputer<Slave> {
     protected void onRemoved() {
         super.onRemoved();
 
-        try {
-            LOGGER.info("Slave removed, deleting droplet " + dropletId);
-            DigitalOcean apiClient = new DigitalOceanClient(authToken);
-            apiClient.deleteDroplet(dropletId);
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
-        }
-    }
-
-    public long getUptime() throws RequestUnsuccessfulException {
-        //TODO: calculate uptime
-        return 3600;
+        LOGGER.info("Slave removed, deleting droplet " + dropletId);
+        DigitalOcean.tryDestroyDropletAsync(authToken, dropletId);
     }
 
     public Cloud getCloud() {
@@ -84,11 +73,13 @@ public class Computer extends AbstractCloudComputer<Slave> {
     }
 
     public int getSshPort() {
-        return 22;
+        return getNode().getSshPort();
     }
 
     public String getRemoteAdmin() {
         return getNode().getRemoteAdmin();
     }
-
+    public long getStartTimeMillis() {
+        return getNode().getStartTimeMillis();
+    }
 }

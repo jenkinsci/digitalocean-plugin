@@ -1,11 +1,31 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2015 Rory Hunter (rory.hunter@blackpepper.co.uk)
+ *               2016 Maxim Biro <nurupo.contributions@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package com.dubture.jenkins.digitalocean;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -195,11 +215,14 @@ public final class DigitalOcean {
             memoryUnits = "gb";
         }
 
-        return String.format("%d%s / %d%s",
+        return String.format("$%s/month ($%s/hour): %d%s RAM, %d CPU, %dgb Disk, %dtb Transfer",
+                size.getPriceMonthly().toString(),
+                size.getPriceHourly().toString(),
                 memory,
                 memoryUnits,
+                size.getVirutalCpuCount(),
                 size.getDiskSize(),
-                "gb");
+                size.getTransfer());
     }
 
     static List<Key> getAvailableKeys(String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
@@ -268,6 +291,50 @@ public final class DigitalOcean {
         }
 
         return image;
+    }
+
+    static Set<Integer> toBeDestroyedDropletIds = new HashSet<Integer>();
+
+    static void tryDestroyDropletAsync(final String authToken, final int dropletId) {
+        // sometimes both Computer and Slave try to destroy the same droplet,
+        // which is redundant, so try to prevent that with toBeDestroyedDropletIds
+        synchronized (toBeDestroyedDropletIds) {
+            if (toBeDestroyedDropletIds.contains(dropletId)) {
+                return;
+            }
+            toBeDestroyedDropletIds.add(dropletId);
+        }
+        // sometimes droplets have pending events during which you can't send other events.
+        // one of such events in spinning up a new droplet, during which a droplet can't be
+        // destroyed. so if we receive
+        // "com.myjeeva.digitalocean.exception.DigitalOceanException: Droplet already has a pending event."
+        // we retry to destroy a droplet.
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                DigitalOceanClient client = new DigitalOceanClient(authToken);
+                while (true) {
+                    try {
+                        client.deleteDroplet(dropletId);
+                        break;
+                    } catch (Exception e) {
+                        if (e.getMessage().contains("pending")) {
+                            try {
+                                Thread.sleep(10000);
+                            } catch (Exception ee) {
+                                // ignore
+                            }
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                synchronized (toBeDestroyedDropletIds) {
+                    toBeDestroyedDropletIds.remove(dropletId);
+                }
+            }
+        });
+        t.start();
     }
 
 	private static Comparator<String> ignoringCase() {

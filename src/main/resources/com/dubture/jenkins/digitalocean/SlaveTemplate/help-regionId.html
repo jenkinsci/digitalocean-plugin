@@ -2,6 +2,7 @@
   ~ The MIT License (MIT)
   ~
   ~ Copyright (c) 2014 robert.gruendler@dubture.com
+  ~               2016 Maxim Biro <nurupo.contributions@gmail.com>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -24,4 +25,8 @@
 
 <div>
     The region in which new droplets will be created from this template.
+    Note that if you create a droplet off a snapshot, DigitalOcean requires
+    for that snapshot to be available in the selected region, otherwise the
+    droplet wouldn't be created. (You can copy a snapshot to a different
+    region in Snapshot settings in DigitalOcean).
 </div>

@@ -1,7 +1,7 @@
 <!--
   ~ The MIT License (MIT)
   ~
-  ~ Copyright (c) 2014 robert.gruendler@dubture.com
+  ~ Copyright (c) 2016 Maxim Biro <nurupo.contributions@gmail.com>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -21,25 +21,11 @@
   ~ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
   ~ THE SOFTWARE.
   -->
+<div>
+    Jekins will ssh into the droplet as the user provided in this field.
 
-<?jelly escape-by-default='true'?>
-
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-
-    <table width="100%">
-
-        <f:entry title="Labels" field="labelString">
-            <f:textbox/>
-        </f:entry>
-
-        <f:entry title="Number of executors" field="numExecutors">
-            <f:textbox/>
-        </f:entry>
-
-        <f:entry title="Idle termination time" field="idleTerminationInMinutes">
-            <f:textbox/>
-        </f:entry>
-
-    </table>
-
-</j:jelly>
+    <P>
+    If you specify anything other than "root", make sure that such user exist
+    and that Jenkins will be able to ssh using the SSH private key specified
+    for this Cloud.
+</div>
