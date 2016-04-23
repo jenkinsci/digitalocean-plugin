@@ -329,7 +329,7 @@ public class Cloud extends hudson.slaves.Cloud {
         public FormValidation doTestConnection(@QueryParameter String authToken) {
             try {
                 DigitalOceanClient client = new DigitalOceanClient(authToken);
-                client.getAvailableDroplets(1);
+                client.getAvailableDroplets(1, 10);
                 return FormValidation.ok("Digitalocean API request succeeded.");
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to connect to DigitalOcean API", e);

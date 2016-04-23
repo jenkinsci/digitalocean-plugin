@@ -112,7 +112,7 @@ public final class DigitalOcean {
 
         do {
             page += 1;
-            images = client.getAvailableImages(page);
+            images = client.getAvailableImages(page, Integer.MAX_VALUE);
             for (Image image : images.getImages()) {
                 String prefix = getPrefix(image);
                 availableImages.put(prefix + image.getDistribution() + " " + image.getName(), image);
@@ -258,7 +258,7 @@ public final class DigitalOcean {
         int page = 1;
 
         do {
-            droplets = apiClient.getAvailableDroplets(page);
+            droplets = apiClient.getAvailableDroplets(page, Integer.MAX_VALUE);
             availableDroplets.addAll(droplets.getDroplets());
             page += 1;
         }
