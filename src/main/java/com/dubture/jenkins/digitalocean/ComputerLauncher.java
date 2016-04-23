@@ -185,8 +185,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
     private Connection connectToSsh(Computer computer, PrintStream logger) throws RequestUnsuccessfulException, DigitalOceanException {
 
-        // TODO: make configurable?
-        final long timeout = TimeUnit2.MINUTES.toMillis(5);
+        final long timeout = TimeUnit2.MINUTES.toMillis(computer.getCloud().getTimeoutMinutes());
         final long startTime = System.currentTimeMillis();
         final int sleepTime = 10;
 

@@ -85,6 +85,8 @@ public class Cloud extends hudson.slaves.Cloud {
 
     private final Integer instanceCap;
 
+    private final Integer timeoutMinutes;
+
     /**
      * List of {@link com.dubture.jenkins.digitalocean.SlaveTemplate}
      */
@@ -110,10 +112,17 @@ public class Cloud extends hudson.slaves.Cloud {
      * @param privateKey An RSA private key in text format
      * @param sshKeyId An identifier (name) for an SSH key known to DigitalOcean
      * @param instanceCap the maximum number of instances that can be started
+     * @param timeoutMinutes
      * @param templates the templates for this cloud
      */
     @DataBoundConstructor
-    public Cloud(String name, String authToken, String privateKey, String sshKeyId, String instanceCap, List<? extends SlaveTemplate> templates) {
+    public Cloud(String name,
+            String authToken,
+            String privateKey,
+            String sshKeyId,
+            String instanceCap,
+            String timeoutMinutes,
+            List<? extends SlaveTemplate> templates) {
         super(name);
 
         LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
@@ -122,6 +131,7 @@ public class Cloud extends hudson.slaves.Cloud {
         this.privateKey = privateKey;
         this.sshKeyId = Integer.parseInt(sshKeyId);
         this.instanceCap = Integer.parseInt(instanceCap);
+        this.timeoutMinutes = timeoutMinutes == null || timeoutMinutes.isEmpty() ? 5 : Integer.parseInt(timeoutMinutes);
 
         if (templates == null) {
             this.templates = Collections.emptyList();
@@ -313,6 +323,10 @@ public class Cloud extends hudson.slaves.Cloud {
 
     public List<SlaveTemplate> getTemplates() {
         return Collections.unmodifiableList(templates);
+    }
+
+    public Integer getTimeoutMinutes() {
+        return timeoutMinutes;
     }
 
     @Extension

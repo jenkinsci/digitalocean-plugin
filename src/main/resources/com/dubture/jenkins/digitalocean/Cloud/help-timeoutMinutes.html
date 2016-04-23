@@ -23,40 +23,6 @@
   ~ THE SOFTWARE.
   -->
 
-<?jelly escape-by-default='true'?>
-
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-
-    <f:entry title="Unique name" field="name">
-        <f:textbox/>
-    </f:entry>
-
-    <f:entry title="Auth token" field="authToken">
-        <f:password />
-    </f:entry>
-
-    <f:entry title="SSH public key" field="sshKeyId">
-        <f:select />
-    </f:entry>
-
-    <f:entry title="SSH private key" field="privateKey">
-        <f:textarea/>
-    </f:entry>
-
-    <f:entry title="Instance cap" field="instanceCap">
-        <f:textbox default="5"/>
-    </f:entry>
-
-    <f:entry title="Timeout in minutes" field="timeoutMinutes">
-        <f:textbox default="5"/>
-    </f:entry>
-
-    <f:validateButton title="Test connection" progress="Testing API connectivity..." method="testConnection" with="authToken"/>
-
-    <f:entry title="Droplets" description="List of droplets which can be launched as slaves">
-        <f:repeatable field="templates">
-            <st:include page="/com/dubture/jenkins/digitalocean/SlaveTemplate/config.jelly" class="com.dubture.jenkins.digitalocean.SlaveTemplate$DescriptorImpl"/>
-        </f:repeatable>
-    </f:entry>
-
-</j:jelly>
+<div>
+    Connection timeout in minutes.
+</div>
