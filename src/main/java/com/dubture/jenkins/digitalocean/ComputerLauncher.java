@@ -62,6 +62,40 @@ import static java.lang.String.format;
  */
 public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     /**
+     * Wrapper around package installers so that the provision process can install extra packages as needed.
+     */
+    private enum PackageInstaller {
+
+        APT_GET("apt-get") {
+            @Override
+            public int installPackage(String packageToInstall, PrintStream logger, Connection conn) throws IOException, InterruptedException {
+                return conn.exec("apt-get update -q && apt-get install -y " + packageToInstall, logger);
+            }
+        }, YUM("yum") {
+            @Override
+            public int installPackage(String packageToInstall, PrintStream logger, Connection conn) throws IOException, InterruptedException {
+                return conn.exec("yum install -y " + packageToInstall, logger);
+            }
+        };
+
+        private String commandName;
+
+        PackageInstaller(String commandName) {
+            this.commandName = commandName;
+        }
+
+        public boolean isPresent(final PrintStream logger, final Connection conn) throws IOException, InterruptedException {
+            return conn.exec("which " + this.commandName, logger) == 0;
+        }
+
+        public abstract int installPackage(final String packageToInstall, final PrintStream logger, final Connection conn) throws IOException, InterruptedException;
+
+        public String getCommandName() {
+            return commandName;
+        }
+    }
+
+    /**
      * Connects to the given {@link Computer} via SSH and installs Java/Jenkins agent if necessary.
      */
     @Override
@@ -173,12 +207,21 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         if (conn.exec("java -fullversion", logger) !=0) {
             logger.println("Installing Java");
 
-            // TODO: Add support for non-debian based java installations
-            // and let the user select the java version
-            if (conn.exec("apt-get update -q && apt-get install -y openjdk-7-jdk", logger) !=0) {
-                logger.println("Failed to download Java");
-                return false;
+            //TODO Web UI to let users install a custom java (or any other type of tool) package.
+            for (PackageInstaller installer : PackageInstaller.values()) {
+                logger.println("Testing for " + installer.getCommandName() + " package installer!");
+                if(installer.isPresent(logger, conn)) {
+                    logger.println("Found "+installer.getCommandName()+"! Attempting java install...");
+                    if(installer.installPackage("openjdk-7-jdk", logger, conn) != 0) {
+                        logger.println("Could not install java using "+installer.getCommandName()+"! Attempting the rest of the installers...");
+                    } else {
+                        return true;
+                    }
+                }
             }
+
+            logger.println("Java could not be installed using any of the supported package installer!");
+            return false;
         }
         return true;
     }
