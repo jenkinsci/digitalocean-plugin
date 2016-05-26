@@ -45,7 +45,11 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.net.SocketTimeoutException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
 import java.util.TimeZone;
 
 import static java.lang.String.format;
@@ -61,39 +65,67 @@ import static java.lang.String.format;
  * @author robert.gruendler@dubture.com
  */
 public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
-    /**
-     * Wrapper around package installers so that the provision process can install extra packages as needed.
-     */
-    private enum PackageInstaller {
 
-        APT_GET("apt-get") {
-            @Override
-            public int installPackage(String packageToInstall, PrintStream logger, Connection conn) throws IOException, InterruptedException {
-                return conn.exec("apt-get update -q && apt-get install -y " + packageToInstall, logger);
-            }
-        }, YUM("yum") {
-            @Override
-            public int installPackage(String packageToInstall, PrintStream logger, Connection conn) throws IOException, InterruptedException {
-                return conn.exec("yum install -y " + packageToInstall, logger);
-            }
-        };
+    private static abstract class JavaInstaller {
+        protected abstract String getInstallCommand(String javaVersion);
 
-        private String commandName;
+        protected abstract String checkPackageManager();
 
-        PackageInstaller(String commandName) {
-            this.commandName = commandName;
+        protected boolean isUsable(Connection conn, PrintStream logger) throws IOException, InterruptedException {
+            return checkCommand(conn, logger, checkPackageManager());
         }
 
-        public boolean isPresent(final PrintStream logger, final Connection conn) throws IOException, InterruptedException {
-            return conn.exec("which " + this.commandName, logger) == 0;
+        private boolean checkCommand(Connection conn, PrintStream logger, String command) throws IOException, InterruptedException {
+            logger.println("Checking: " + command);
+            return conn.exec(command, logger) == 0;
         }
 
-        public abstract int installPackage(final String packageToInstall, final PrintStream logger, final Connection conn) throws IOException, InterruptedException;
-
-        public String getCommandName() {
-            return commandName;
+        protected int installJava(Connection conn, PrintStream logger, Iterable<String> javaVersion) throws IOException, InterruptedException {
+            int result = 1;
+            for (String version : javaVersion) {
+                result = conn.exec(getInstallCommand(version), logger);
+                if (result == 0) {
+                    return result;
+                }
+            }
+            return result;
         }
     }
+
+    private static final List<String> VALID_VERSIONS = Arrays.asList("1.8", "1.7", "1.9");
+
+    private static final Collection<JavaInstaller> INSTALLERS = new HashSet<JavaInstaller>() {{
+        add(new JavaInstaller() { // apt
+            @Override
+            protected String getInstallCommand(String javaVersion) {
+                return "apt-get update -q && apt-get install -y " + getPackageName(javaVersion);
+            }
+
+            @Override
+            protected String checkPackageManager() {
+                return "which apt-get";
+            }
+
+            private String getPackageName(String javaVersion) {
+                return "openjdk-" + javaVersion.replaceFirst("1.", "") + "-jre-headless";
+            }
+        });
+        add(new JavaInstaller() { // yum
+            @Override
+            protected String getInstallCommand(String javaVersion) {
+                return "yum install -y " + getPackageName(javaVersion);
+            }
+
+            @Override
+            protected String checkPackageManager() {
+                return "which yum";
+            }
+
+            private String getPackageName(String javaVersion) {
+                return "java-" + javaVersion + ".0-openjdk-headless";
+            }
+        });
+    }};
 
     /**
      * Connects to the given {@link Computer} via SSH and installs Java/Jenkins agent if necessary.
@@ -203,20 +235,18 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
     private boolean installJava(final PrintStream logger, final Connection conn) throws IOException, InterruptedException {
         logger.println("Verifying that java exists");
-
-        if (conn.exec("java -fullversion", logger) !=0) {
+        if (conn.exec("java -fullversion", logger) != 0) {
             logger.println("Installing Java");
-
+            logger.println("try to install one of these Java-versions" + VALID_VERSIONS);
             //TODO Web UI to let users install a custom java (or any other type of tool) package.
-            for (PackageInstaller installer : PackageInstaller.values()) {
-                logger.println("Testing for " + installer.getCommandName() + " package installer!");
-                if(installer.isPresent(logger, conn)) {
-                    logger.println("Found "+installer.getCommandName()+"! Attempting java install...");
-                    if(installer.installPackage("openjdk-7-jdk", logger, conn) != 0) {
-                        logger.println("Could not install java using "+installer.getCommandName()+"! Attempting the rest of the installers...");
-                    } else {
-                        return true;
-                    }
+            logger.println("Trying to find package installer!");
+            for (JavaInstaller installer : INSTALLERS) {
+                if (!installer.isUsable(conn, logger)) {
+                    continue;
+                }
+                logger.println("trying to install a java-version which versions can be installed");
+                if (installer.installJava(conn, logger, VALID_VERSIONS) == 0) {
+                    return true;
                 }
             }
 
