@@ -80,7 +80,7 @@ public final class DigitalOcean {
             sizes = client.getAvailableSizes(page);
             availableSizes.addAll(sizes.getSizes());
         }
-        while (sizes.getMeta().getTotal() > page);
+        while (sizes.getMeta().getTotal() > availableSizes.size());
 
         Collections.sort(availableSizes, new Comparator<Size>() {
             @Override
@@ -115,10 +115,17 @@ public final class DigitalOcean {
             images = client.getAvailableImages(page, Integer.MAX_VALUE);
             for (Image image : images.getImages()) {
                 String prefix = getPrefix(image);
-                availableImages.put(prefix + image.getDistribution() + " " + image.getName(), image);
+                final String name = prefix + image.getDistribution() + " " + image.getName();
+                String numberedName = name;
+                int count = 2;
+                while (availableImages.containsKey(numberedName)) {
+                    numberedName = name + " (" + count + ")";
+                    count ++;
+                }
+                availableImages.put(numberedName, image);
             }
         }
-        while (images.getMeta().getTotal() > page);
+        while (images.getMeta().getTotal() > availableImages.size());
 
         return availableImages;
     }
@@ -129,7 +136,7 @@ public final class DigitalOcean {
 			return "(Backup) ";
 		}
 
-		if (isUserSnapshot(image)) {
+		if (image.getType() == ImageType.SNAPSHOT && image.getSlug() == null && !image.isAvailablePublic()) {
 			return "(Snapshot) ";
 		}
 
@@ -151,15 +158,6 @@ public final class DigitalOcean {
 	}
 
 	/**
-	 * I'm told that if you manually take an image snapshot, then it
-	 * has a snapshot type but no slug. Therefore, indicate that it is
-	 * a user-snapshot
-	 */
-	private static boolean isUserSnapshot(Image image) {
-		return image.getType() == ImageType.SNAPSHOT && image.getSlug() == null;
-	}
-
-	/**
      * Fetches all regions that are flagged as available.
      * @param authToken the API authorisation token to use
      * @return a list of {@link Region}s, sorted by name.
@@ -176,13 +174,9 @@ public final class DigitalOcean {
         do {
             page += 1;
             regions = client.getAvailableRegions(page);
-            for (Region region : regions.getRegions()) {
-                if (region.isAvailable()) {
-                    availableRegions.add(region);
-                }
-            }
+            availableRegions.addAll(regions.getRegions());
         }
-        while (regions.getMeta().getTotal() > page);
+        while (regions.getMeta().getTotal() > availableRegions.size());
 
         Collections.sort(availableRegions, new Comparator<Region>() {
             @Override
@@ -231,14 +225,14 @@ public final class DigitalOcean {
         List<Key> availableKeys = new ArrayList<Key>();
 
         Keys keys;
-        int page = 1;
+        int page = 0;
 
         do {
+            page += 1;
             keys = client.getAvailableKeys(page);
             availableKeys.addAll(keys.getKeys());
-            page += 1;
         }
-        while (keys.getMeta().getTotal() > page);
+        while (keys.getMeta().getTotal() > availableKeys.size());
 
         return availableKeys;
     }
@@ -255,14 +249,14 @@ public final class DigitalOcean {
         DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
         List<Droplet> availableDroplets = newArrayList();
         Droplets droplets;
-        int page = 1;
+        int page = 0;
 
         do {
+            page += 1;
             droplets = apiClient.getAvailableDroplets(page, Integer.MAX_VALUE);
             availableDroplets.addAll(droplets.getDroplets());
-            page += 1;
         }
-        while (droplets.getMeta().getTotal() > page);
+        while (droplets.getMeta().getTotal() > availableDroplets.size());
 
         return availableDroplets;
     }
@@ -337,12 +331,12 @@ public final class DigitalOcean {
         t.start();
     }
 
-	private static Comparator<String> ignoringCase() {
-		return new Comparator<String>() {
-			@Override
-			public int compare(final String o1, final String o2) {
-				return o1.compareToIgnoreCase(o2);
-			}
-		};
-	}
+    private static Comparator<String> ignoringCase() {
+        return new Comparator<String>() {
+            @Override
+            public int compare(final String o1, final String o2) {
+                return o1.compareToIgnoreCase(o2);
+            }
+        };
+    }
 }
