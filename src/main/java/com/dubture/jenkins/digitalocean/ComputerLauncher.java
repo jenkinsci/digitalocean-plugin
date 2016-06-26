@@ -51,6 +51,8 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static java.lang.String.format;
 
@@ -65,6 +67,8 @@ import static java.lang.String.format;
  * @author robert.gruendler@dubture.com
  */
 public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
+
+    private static final Logger LOGGER = Logger.getLogger(Cloud.class.getName());
 
     private static abstract class JavaInstaller {
         protected abstract String getInstallCommand(String javaVersion);
@@ -179,6 +183,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
             successful = true;
         } catch (Exception e) {
+            LOGGER.log(Level.WARNING, e.getMessage(), e);
             try {
                 Jenkins.getInstance().removeNode(computer.getNode());
             } catch (Exception ee) {
