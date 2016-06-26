@@ -241,21 +241,19 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     private boolean installJava(final PrintStream logger, final Connection conn) throws IOException, InterruptedException {
         logger.println("Verifying that java exists");
         if (conn.exec("java -fullversion", logger) != 0) {
-            logger.println("Installing Java");
-            logger.println("try to install one of these Java-versions" + VALID_VERSIONS);
+            logger.println("Try to install one of these Java-versions: " + VALID_VERSIONS);
             //TODO Web UI to let users install a custom java (or any other type of tool) package.
-            logger.println("Trying to find package installer!");
+            logger.println("Trying to find a working package manager");
             for (JavaInstaller installer : INSTALLERS) {
                 if (!installer.isUsable(conn, logger)) {
                     continue;
                 }
-                logger.println("trying to install a java-version which versions can be installed");
                 if (installer.installJava(conn, logger, VALID_VERSIONS) == 0) {
                     return true;
                 }
             }
 
-            logger.println("Java could not be installed using any of the supported package installer!");
+            logger.println("Java could not be installed using any of the supported package managers");
             return false;
         }
         return true;
