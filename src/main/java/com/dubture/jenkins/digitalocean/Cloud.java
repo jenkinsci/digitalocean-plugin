@@ -415,7 +415,7 @@ public class Cloud extends hudson.slaves.Cloud {
             ListBoxModel model = new ListBoxModel();
 
             for (Key image : availableSizes) {
-                model.add(image.getName(), image.getId().toString());
+                model.add(image.getName() + " (" + image.getFingerprint() + ")", image.getId().toString());
             }
 
             return model;
