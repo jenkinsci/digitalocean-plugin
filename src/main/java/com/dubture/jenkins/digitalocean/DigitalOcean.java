@@ -33,16 +33,7 @@ import com.myjeeva.digitalocean.common.ImageType;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
-import com.myjeeva.digitalocean.pojo.Droplet;
-import com.myjeeva.digitalocean.pojo.Droplets;
-import com.myjeeva.digitalocean.pojo.Image;
-import com.myjeeva.digitalocean.pojo.Images;
-import com.myjeeva.digitalocean.pojo.Key;
-import com.myjeeva.digitalocean.pojo.Keys;
-import com.myjeeva.digitalocean.pojo.Region;
-import com.myjeeva.digitalocean.pojo.Regions;
-import com.myjeeva.digitalocean.pojo.Size;
-import com.myjeeva.digitalocean.pojo.Sizes;
+import com.myjeeva.digitalocean.pojo.*;
 
 import static com.google.common.collect.Lists.newArrayList;
 
@@ -293,56 +284,132 @@ public final class DigitalOcean {
         return image;
     }
 
-    static Set<Integer> toBeDestroyedDropletIds = new HashSet<Integer>();
+    private static class DestroyInfo {
+        public final String authToken;
+        public final int dropletId;
 
-    static void tryDestroyDropletAsync(final String authToken, final int dropletId) {
-        // sometimes both Computer and Slave try to destroy the same droplet,
-        // which is redundant, so try to prevent that with toBeDestroyedDropletIds
-        synchronized (toBeDestroyedDropletIds) {
-            if (toBeDestroyedDropletIds.contains(dropletId)) {
-                return;
-            }
-            toBeDestroyedDropletIds.add(dropletId);
+        public DestroyInfo(String authToken, int dropletId) {
+            this.authToken = authToken;
+            this.dropletId = dropletId;
         }
-        // sometimes droplets have pending events during which you can't send other events.
-        // one of such events in spinning up a new droplet, during which a droplet can't be
-        // destroyed. so if we receive
-        // "com.myjeeva.digitalocean.exception.DigitalOceanException: Droplet already has a pending event."
-        // we retry to destroy a droplet.
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                DigitalOceanClient client = new DigitalOceanClient(authToken);
-                while (true) {
-                    try {
-                        client.deleteDroplet(dropletId);
-                        break;
-                    } catch (Exception e) {
-                        if (e.getMessage().contains("pending")) {
-                            try {
-                                Thread.sleep(10000);
-                            } catch (Exception ee) {
-                                // ignore
-                            }
-                            continue;
-                        }
-                        break;
-                    }
-                }
-                synchronized (toBeDestroyedDropletIds) {
-                    toBeDestroyedDropletIds.remove(dropletId);
-                }
-            }
-        });
-        t.start();
     }
 
-	private static Comparator<String> ignoringCase() {
-		return new Comparator<String>() {
-			@Override
-			public int compare(final String o1, final String o2) {
-				return o1.compareToIgnoreCase(o2);
-			}
-		};
-	}
+    private static final List<DestroyInfo> toBeDestroyedDroplets = new ArrayList<DestroyInfo>();
+
+    // sometimes droplets have pending events during which you can't destroy them.
+    // one of such events in spinning up a new droplet. so we continiously try to
+    // destroy droplets in a separate thread
+    private static final Thread dropletDestroyer = new Thread(new Runnable() {
+        @Override
+        public void run() {
+
+            do {
+                String previousAuthToken = null;
+                DigitalOceanClient client = null;
+                List<Droplet> droplets = null;
+                boolean failedToDestroy = false;
+
+                synchronized (toBeDestroyedDroplets) {
+                    Iterator<DestroyInfo> it = toBeDestroyedDroplets.iterator();
+                    while (it.hasNext()) {
+                        DestroyInfo di = it.next();
+
+                        // the list should be sorted by di.authToken to prevent unnecessary DigitalOceanClient recreation
+                        if (di.authToken != previousAuthToken) {
+                            previousAuthToken = di.authToken;
+                            client = new DigitalOceanClient(di.authToken);
+                            // new auth token -- new list of droplets
+                            droplets = null;
+                        }
+
+                        try {
+                            LOGGER.info("Trying to destroy droplet " + di.dropletId);
+                            client.deleteDroplet(di.dropletId);
+                            LOGGER.info("Droplet " + di.dropletId + " is destroyed");
+                            it.remove();
+                        } catch (Exception e) {
+                            // check if such droplet even exist in the first place
+                            if (droplets == null) {
+                                try {
+                                    droplets = client.getAvailableDroplets(1, Integer.MAX_VALUE).getDroplets();
+                                } catch (Exception ee) {
+                                    // ignore
+                                }
+                            }
+                            if (droplets != null) {
+                                boolean found = false;
+                                for (Droplet d : droplets) {
+                                    if (d.getId() == di.dropletId) {
+                                        found = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!found) {
+                                    // such droplet doesn't exist, stop trying to destroy it you dummy
+                                    LOGGER.info("Droplet " + di.dropletId + " doesn't even exist, stop trying to destroy it you dummy!");
+                                    it.remove();
+                                    continue;
+                                }
+                            }
+                            // such droplet might exist, so let's retry later
+                            failedToDestroy = true;
+                            LOGGER.warning("Failed to destroy droplet " + di.dropletId);
+                            LOGGER.log(Level.WARNING, e.getMessage(), e);
+                        }
+                    }
+
+                    if (failedToDestroy) {
+                        LOGGER.info("Retrying to destroy the droplets in about 10 seconds");
+                        try {
+                            // sleep for 10 seconds, but wake up earlier if notified
+                            toBeDestroyedDroplets.wait(10000);
+                        } catch (InterruptedException e) {
+                            // ignore
+                        }
+                    } else {
+                        LOGGER.info("Waiting on more droplets to destroy");
+                        while (toBeDestroyedDroplets.isEmpty()) {
+                            try {
+                                toBeDestroyedDroplets.wait();
+                            } catch (InterruptedException e) {
+                                // ignore
+                            }
+                        }
+                    }
+                }
+            } while (true);
+        }
+    });
+
+    static void tryDestroyDropletAsync(final String authToken, final int dropletId) {
+        synchronized (toBeDestroyedDroplets) {
+            LOGGER.info("Adding droplet to destroy " + dropletId);
+
+            toBeDestroyedDroplets.add(new DestroyInfo(authToken, dropletId));
+
+            // sort by authToken
+            Collections.sort(toBeDestroyedDroplets, new Comparator<DestroyInfo>() {
+                @Override
+                public int compare(DestroyInfo o1, DestroyInfo o2) {
+                    return o1.authToken.compareTo(o2.authToken);
+                }
+            });
+
+            toBeDestroyedDroplets.notifyAll();
+
+            if (!dropletDestroyer.isAlive()) {
+                dropletDestroyer.start();
+            }
+        }
+    }
+
+    private static Comparator<String> ignoringCase() {
+        return new Comparator<String>() {
+            @Override
+            public int compare(final String o1, final String o2) {
+                return o1.compareToIgnoreCase(o2);
+            }
+        };
+    }
 }
