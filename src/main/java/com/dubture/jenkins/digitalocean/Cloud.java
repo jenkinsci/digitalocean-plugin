@@ -248,12 +248,12 @@ public class Cloud extends hudson.slaves.Cloud {
             try {
                 SlaveTemplate template = getTemplateBelowInstanceCap(label);
                 if (template == null) {
-                    LOGGER.log(Level.INFO, "No slaves could provision for label " + label.getDisplayName() + " because they either dodn't support such a label or have reached the instance cap.");
+                    LOGGER.log(Level.INFO, "No slaves could provision for label " + label.getDisplayName() + " because they either didn't support such a label or have reached the instance cap.");
                     return false;
                 }
 
                 if (isInstanceCapReached()) {
-                    LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
+                    LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning for label " + label.getDisplayName() + ".");
                     return false;
                 }
 
