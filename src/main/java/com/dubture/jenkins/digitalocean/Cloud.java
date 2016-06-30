@@ -142,20 +142,9 @@ public class Cloud extends hudson.slaves.Cloud {
         LOGGER.info("Creating DigitalOcean cloud with " + this.templates.size() + " templates");
     }
 
-    public boolean isInstanceCapReached() throws RequestUnsuccessfulException, DigitalOceanException {
+    public boolean isInstanceCapReachedLocal() {
         if (instanceCap == 0) {
             return false;
-        }
-
-        int slaveTotalInstanceCap = 0;
-        for (SlaveTemplate t : templates) {
-            int slaveInstanceCap = t.getInstanceCap();
-            if (slaveInstanceCap == 0) {
-                slaveTotalInstanceCap = Integer.MAX_VALUE;
-                break;
-            } else {
-                slaveTotalInstanceCap += t.getInstanceCap();
-            }
         }
 
         int count = 0;
@@ -169,14 +158,16 @@ public class Cloud extends hudson.slaves.Cloud {
             }
         }
 
-        if (count >= Math.min(instanceCap, slaveTotalInstanceCap)) {
-            return true;
-        }
+        return count >= Math.min(instanceCap, getSlaveInstanceCap());
+    }
 
-        List<Droplet> availableDroplets = DigitalOcean.getDroplets(authToken);
+    public boolean isInstanceCapReachedRemote(List<Droplet> droplets) throws RequestUnsuccessfulException, DigitalOceanException {
 
-        count = 0;
-        for (Droplet droplet : availableDroplets) {
+        int count = 0;
+
+        LOGGER.log(Level.INFO, "cloud limit check");
+
+        for (Droplet droplet : droplets) {
             if (droplet.isActive() || droplet.isNew()) {
                 if (DropletName.isDropletInstanceOfCloud(droplet.getName(), name)) {
                     count ++;
@@ -184,7 +175,22 @@ public class Cloud extends hudson.slaves.Cloud {
             }
         }
 
-        return count >= Math.min(instanceCap, slaveTotalInstanceCap);
+        return count >= Math.min(instanceCap, getSlaveInstanceCap());
+    }
+
+    private int getSlaveInstanceCap() {
+        int slaveTotalInstanceCap = 0;
+        for (SlaveTemplate t : templates) {
+            int slaveInstanceCap = t.getInstanceCap();
+            if (slaveInstanceCap == 0) {
+                slaveTotalInstanceCap = Integer.MAX_VALUE;
+                break;
+            } else {
+                slaveTotalInstanceCap += t.getInstanceCap();
+            }
+        }
+
+        return slaveTotalInstanceCap;
     }
 
     /**
@@ -201,12 +207,14 @@ public class Cloud extends hudson.slaves.Cloud {
             try {
                 while (excessWorkload > 0) {
 
-                    if (isInstanceCapReached()) {
-                        LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
+                    List<Droplet> droplets = DigitalOcean.getDroplets(authToken);
+
+                    if (isInstanceCapReachedLocal() || isInstanceCapReachedRemote(droplets)) {
+                        LOGGER.log(Level.INFO, "Instance cap reached, not provisioning.");
                         break;
                     }
 
-                    final SlaveTemplate template = getTemplateBelowInstanceCap(label);
+                    final SlaveTemplate template = getTemplateBelowInstanceCap(droplets, label);
                     if (template == null) {
                         break;
                     }
@@ -217,11 +225,13 @@ public class Cloud extends hudson.slaves.Cloud {
                         public Node call() throws Exception {
                             Slave slave;
                             synchronized (provisionSynchronizor) {
-                                if (isInstanceCapReached()) {
-                                    LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
+                                List<Droplet> droplets = DigitalOcean.getDroplets(authToken);
+
+                                if (isInstanceCapReachedLocal() || isInstanceCapReachedRemote(droplets)) {
+                                    LOGGER.log(Level.INFO, "Instance cap reached, not provisioning.");
                                     return null;
                                 }
-                                slave = template.provision(dropletName, name, authToken, privateKey, sshKeyId);
+                                slave = template.provision(dropletName, name, authToken, privateKey, sshKeyId, droplets);
                             }
                             Jenkins.getInstance().addNode(slave);
                             slave.toComputer().connect(false).get();
@@ -246,18 +256,16 @@ public class Cloud extends hudson.slaves.Cloud {
     public boolean canProvision(Label label) {
         synchronized (provisionSynchronizor) {
             try {
-                SlaveTemplate template = getTemplateBelowInstanceCap(label);
+                SlaveTemplate template = getTemplateBelowInstanceCapLocal(label);
                 if (template == null) {
                     LOGGER.log(Level.INFO, "No slaves could provision for label " + label.getDisplayName() + " because they either didn't support such a label or have reached the instance cap.");
                     return false;
                 }
 
-                if (isInstanceCapReached()) {
+                if (isInstanceCapReachedLocal()) {
                     LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning for label " + label.getDisplayName() + ".");
                     return false;
                 }
-
-
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, e.getMessage(), e);
             }
@@ -281,12 +289,28 @@ public class Cloud extends hudson.slaves.Cloud {
         return matchingTemplates;
     }
 
-    public SlaveTemplate getTemplateBelowInstanceCap(Label label) {
+    public SlaveTemplate getTemplateBelowInstanceCap(List<Droplet> droplets, Label label) {
         List<SlaveTemplate> matchingTempaltes = getTemplates(label);
 
         try {
             for (SlaveTemplate t : matchingTempaltes) {
-                if (!t.isInstanceCapReached(authToken, name)) {
+                if (!t.isInstanceCapReachedLocal(name) && !t.isInstanceCapReachedRemote(droplets, name)) {
+                    return t;
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, e.getMessage(), e);
+        }
+
+        return null;
+    }
+
+    public SlaveTemplate getTemplateBelowInstanceCapLocal(Label label) {
+        List<SlaveTemplate> matchingTempaltes = getTemplates(label);
+
+        try {
+            for (SlaveTemplate t : matchingTempaltes) {
+                if (!t.isInstanceCapReachedLocal(name)) {
                     return t;
                 }
             }

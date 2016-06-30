@@ -65,7 +65,7 @@ import static com.google.common.collect.Lists.newArrayList;
  *
  * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * <p>The {@link SlaveTemplate#provision(String, String, String, String, Integer)} method
+ * <p>The {@link SlaveTemplate#provision(String, String, String, String, Integer, List<Droplet>)} method
  * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
@@ -163,7 +163,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         readResolve();
     }
 
-    public boolean isInstanceCapReached(String authToken, String cloudName) throws RequestUnsuccessfulException, DigitalOceanException {
+
+    public boolean isInstanceCapReachedLocal(String cloudName) {
         if (instanceCap == 0) {
             return false;
         }
@@ -177,13 +178,13 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             }
         }
 
-        if (count >= instanceCap) {
-            return true;
-        }
+        return count >= instanceCap;
+    }
 
-        count = 0;
-        List<Droplet> availableDroplets = DigitalOcean.getDroplets(authToken);
-        for (Droplet droplet : availableDroplets) {
+    public boolean isInstanceCapReachedRemote(List<Droplet> droplets, String cloudName) throws DigitalOceanException {
+        LOGGER.log(Level.INFO, "slave limit check");
+        int count = 0;
+        for (Droplet droplet : droplets) {
             if ((droplet.isActive() || droplet.isNew())) {
                 if (DropletName.isDropletInstanceOfSlave(droplet.getName(), cloudName, name)) {
                     count++;
@@ -194,7 +195,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return count >= instanceCap;
     }
 
-    public Slave provision(String dropletName, String cloudName, String authToken, String privateKey, Integer sshKeyId)
+    public Slave provision(String dropletName, String cloudName, String authToken, String privateKey, Integer sshKeyId, List<Droplet> droplets)
             throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
 
         LOGGER.log(Level.INFO, "Provisioning slave...");
@@ -202,7 +203,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         try {
             LOGGER.log(Level.INFO, "Starting to provision digital ocean droplet using image: " + imageId + " region: " + regionId + ", sizeId: " + sizeId);
 
-            if (isInstanceCapReached(authToken, cloudName)) {
+            if (isInstanceCapReachedLocal(cloudName) || isInstanceCapReachedRemote(droplets, cloudName)) {
                 throw new AssertionError();
             }
 
