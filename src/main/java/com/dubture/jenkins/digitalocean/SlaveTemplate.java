@@ -86,6 +86,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final String labels;
 
+    private final Boolean labellessJobsAllowed;
+
     /**
      * The Image to be used for the droplet.
      */
@@ -138,7 +140,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     @DataBoundConstructor
     public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
                          Integer sshPort, String idleTerminationInMinutes, String numExecutors, String labelString,
-                         String instanceCap, String userData, String initScript) {
+                         Boolean labellessJobsAllowed, String instanceCap, String userData, String initScript) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
@@ -154,6 +156,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.idleTerminationInMinutes = tryParseInteger(idleTerminationInMinutes, 10);
         this.numExecutors = tryParseInteger(numExecutors, 1);
         this.labelString = labelString;
+        this.labellessJobsAllowed = labellessJobsAllowed;
         this.labels = Util.fixNull(labelString);
         this.instanceCap = Integer.parseInt(instanceCap);
 
@@ -438,6 +441,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public String getLabelString() {
         return labelString;
+    }
+
+    public boolean isLabellessJobsAllowed() {
+        return labellessJobsAllowed;
     }
 
     public Set<LabelAtom> getLabelSet() {

@@ -278,10 +278,9 @@ public class Cloud extends hudson.slaves.Cloud {
         List<SlaveTemplate> matchingTemplates = new ArrayList<SlaveTemplate>();
 
         for (SlaveTemplate t : templates) {
-            if (label == null && t.getLabelSet().size() != 0) {
-                continue;
-            }
-            if ((label == null && t.getLabelSet().size() == 0) || label.matches(t.getLabelSet())) {
+            if ((label == null && t.getLabelSet().size() == 0) ||
+                    (label == null && t.isLabellessJobsAllowed()) ||
+                    (label != null && label.matches(t.getLabelSet()))) {
                 matchingTemplates.add(t);
             }
         }
