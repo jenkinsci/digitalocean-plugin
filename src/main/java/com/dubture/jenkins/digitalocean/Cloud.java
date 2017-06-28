@@ -88,6 +88,8 @@ public class Cloud extends hudson.slaves.Cloud {
 
     private final Integer instanceCap;
 
+    private final Boolean usePrivateNetworking;
+
     private final Integer timeoutMinutes;
 
     private final Integer connectionRetryWait;
@@ -117,6 +119,7 @@ public class Cloud extends hudson.slaves.Cloud {
      * @param privateKey An RSA private key in text format
      * @param sshKeyId An identifier (name) for an SSH key known to DigitalOcean
      * @param instanceCap the maximum number of instances that can be started
+     * @param usePrivateNetworking Whether to use private networking to connect to the cloud.
      * @param timeoutMinutes
      * @param connectionRetryWait the time to wait for SSH connections to work
      * @param templates the templates for this cloud
@@ -127,6 +130,7 @@ public class Cloud extends hudson.slaves.Cloud {
             String privateKey,
             String sshKeyId,
             String instanceCap,
+            Boolean usePrivateNetworking,
             String timeoutMinutes,
             String connectionRetryWait,
             List<? extends SlaveTemplate> templates) {
@@ -138,6 +142,7 @@ public class Cloud extends hudson.slaves.Cloud {
         this.privateKey = privateKey;
         this.sshKeyId = Integer.parseInt(sshKeyId);
         this.instanceCap = Integer.parseInt(instanceCap);
+        this.usePrivateNetworking = usePrivateNetworking;
         this.timeoutMinutes = timeoutMinutes == null || timeoutMinutes.isEmpty() ? 5 : Integer.parseInt(timeoutMinutes);
         this.connectionRetryWait = connectionRetryWait == null || connectionRetryWait.isEmpty() ? 10 : Integer.parseInt(connectionRetryWait);
 
@@ -241,7 +246,7 @@ public class Cloud extends hudson.slaves.Cloud {
                                     return null;
                                 }
                                 slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
-                                                           sshKeyId, droplets);
+                                                           sshKeyId, droplets, usePrivateNetworking);
                             }
                             Jenkins.getInstance().addNode(slave);
                             slave.toComputer().connect(false).get();
@@ -364,6 +369,10 @@ public class Cloud extends hudson.slaves.Cloud {
 
     public Integer getConnectionRetryWait() {
         return connectionRetryWait;
+    }
+
+    public Boolean getUsePrivateNetworking() {
+        return usePrivateNetworking;
     }
 
     @Extension

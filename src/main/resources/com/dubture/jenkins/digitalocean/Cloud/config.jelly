@@ -48,6 +48,10 @@
         <f:textbox default="5"/>
     </f:entry>
 
+    <f:entry field="usePrivateNetworking">
+        <f:checkbox title="Use private networking between master and cloud slaves"/>
+    </f:entry>
+
     <f:entry title="Timeout in minutes" field="timeoutMinutes">
         <f:textbox default="5"/>
     </f:entry>
