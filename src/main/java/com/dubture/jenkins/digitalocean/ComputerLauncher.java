@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
  *               2016 Maxim Biro <nurupo.contributions@gmail.com>
+ *               2017 Harald Sitter <sitter@kde.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -263,7 +264,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
         final long timeout = TimeUnit2.MINUTES.toMillis(computer.getCloud().getTimeoutMinutes());
         final long startTime = System.currentTimeMillis();
-        final int sleepTime = 10;
+        final int sleepTime = computer.getCloud().getConnectionRetryWait();
 
         long waitTime;
 
