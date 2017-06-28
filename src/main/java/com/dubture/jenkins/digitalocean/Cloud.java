@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
  *               2016 Maxim Biro <nurupo.contributions@gmail.com>
+ *               2017 Harald Sitter <sitter@kde.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +41,8 @@ import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
+import org.jenkinsci.plugins.cloudstats.TrackedPlannedNode;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -221,7 +224,8 @@ public class Cloud extends hudson.slaves.Cloud {
 
                     final String dropletName = DropletName.generateDropletName(name, template.getName());
 
-                    provisioningNodes.add(new NodeProvisioner.PlannedNode(dropletName, Computer.threadPoolForRemoting.submit(new Callable<Node>() {
+                    final ProvisioningActivity.Id provisioningId = new ProvisioningActivity.Id(this.name, template.getName(), dropletName);
+                    provisioningNodes.add(new TrackedPlannedNode(provisioningId, template.getNumExecutors(), Computer.threadPoolForRemoting.submit(new Callable<Node>() {
                         public Node call() throws Exception {
                             Slave slave;
                             synchronized (provisionSynchronizor) {
@@ -231,13 +235,14 @@ public class Cloud extends hudson.slaves.Cloud {
                                     LOGGER.log(Level.INFO, "Instance cap reached, not provisioning.");
                                     return null;
                                 }
-                                slave = template.provision(dropletName, name, authToken, privateKey, sshKeyId, droplets);
+                                slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
+                                                           sshKeyId, droplets);
                             }
                             Jenkins.getInstance().addNode(slave);
                             slave.toComputer().connect(false).get();
                             return slave;
                         }
-                    }), template.getNumExecutors()));
+                    })));
 
                     excessWorkload -= template.getNumExecutors();
                 }

@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
  *               2016 Maxim Biro <nurupo.contributions@gmail.com>
+ *               2017 Harald Sitter <sitter@kde.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -55,6 +56,7 @@ import hudson.slaves.NodeProperty;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -198,7 +200,13 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return count >= instanceCap;
     }
 
-    public Slave provision(String dropletName, String cloudName, String authToken, String privateKey, Integer sshKeyId, List<Droplet> droplets)
+    public Slave provision(ProvisioningActivity.Id provisioningId,
+                           String dropletName,
+                           String cloudName,
+                           String authToken,
+                           String privateKey,
+                           Integer sshKeyId,
+                           List<Droplet> droplets)
             throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
 
         LOGGER.log(Level.INFO, "Provisioning slave...");
@@ -227,7 +235,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
             Droplet createdDroplet = apiClient.createDroplet(droplet);
 
-            return newSlave(cloudName, createdDroplet, privateKey);
+            return newSlave(provisioningId, cloudName, createdDroplet, privateKey);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, e.getMessage(), e);
             throw new AssertionError();
@@ -242,9 +250,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @throws IOException
      * @throws Descriptor.FormException
      */
-    private Slave newSlave(String cloudName, Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
+    private Slave newSlave(ProvisioningActivity.Id provisioningId, String cloudName, Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
         LOGGER.log(Level.INFO, "Creating new slave...");
         return new Slave(
+                provisioningId,
                 cloudName,
                 droplet.getName(),
                 "Computer running on DigitalOcean with name: " + droplet.getName(),
