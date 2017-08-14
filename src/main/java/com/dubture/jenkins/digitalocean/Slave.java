@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
  *               2016 Maxim Biro <nurupo.contributions@gmail.com>
+ *               2017 Harald Sitter <sitter@kde.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +34,8 @@ import hudson.slaves.ComputerLauncher;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.RetentionStrategy;
 import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
+import org.jenkinsci.plugins.cloudstats.TrackedItem;
 
 import java.io.IOException;
 import java.util.List;
@@ -49,9 +52,11 @@ import java.util.logging.Logger;
  *
  * @author robert.gruendler@dubture.com
  */
-public class Slave extends AbstractCloudSlave {
+public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     private static final Logger LOG = Logger.getLogger(Slave.class.getName());
+
+    private final ProvisioningActivity.Id provisioningId;
 
     private final String cloudName;
 
@@ -74,7 +79,7 @@ public class Slave extends AbstractCloudSlave {
     /**
      * {@link Slave}s are created by {@link SlaveTemplate}s
      */
-    public Slave(String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
+    public Slave(ProvisioningActivity.Id provisioningId, String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
                  String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
                  Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
                  List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmOpts)
@@ -82,6 +87,7 @@ public class Slave extends AbstractCloudSlave {
 
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy, nodeProperties);
 
+        this.provisioningId = provisioningId;
         this.cloudName = cloudName;
         this.dropletId = dropletId;
         this.privateKey = privateKey;
@@ -144,6 +150,11 @@ public class Slave extends AbstractCloudSlave {
     @Override
     protected void _terminate(TaskListener listener) throws IOException, InterruptedException {
         DigitalOcean.tryDestroyDropletAsync(getCloud().getAuthToken(), dropletId);
+    }
+
+    @Override
+    public ProvisioningActivity.Id getId() {
+        return provisioningId;
     }
 
     public long getStartTimeMillis() {

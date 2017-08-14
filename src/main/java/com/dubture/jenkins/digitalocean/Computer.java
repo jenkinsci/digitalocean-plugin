@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
  *               2016 Maxim Biro <nurupo.contributions@gmail.com>
+ *               2017 Harald Sitter <sitter@kde.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +31,8 @@ import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import hudson.slaves.AbstractCloudComputer;
+import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
+import org.jenkinsci.plugins.cloudstats.TrackedItem;
 
 import java.util.logging.Logger;
 
@@ -41,9 +44,11 @@ import java.util.logging.Logger;
  *
  * @author robert.gruendler@dubture.com
  */
-public class Computer extends AbstractCloudComputer<Slave> {
+public class Computer extends AbstractCloudComputer<Slave> implements TrackedItem {
 
     private static final Logger LOGGER = Logger.getLogger(Computer.class.getName());
+
+    private final ProvisioningActivity.Id provisioningId;
 
     private final String authToken;
 
@@ -51,6 +56,7 @@ public class Computer extends AbstractCloudComputer<Slave> {
 
     public Computer(Slave slave) {
         super(slave);
+        provisioningId = slave.getId();
         dropletId = slave.getDropletId();
         authToken = slave.getCloud().getAuthToken();
     }
@@ -66,6 +72,11 @@ public class Computer extends AbstractCloudComputer<Slave> {
 
         LOGGER.info("Slave removed, deleting droplet " + dropletId);
         DigitalOcean.tryDestroyDropletAsync(authToken, dropletId);
+    }
+
+    @Override
+    public ProvisioningActivity.Id getId() {
+        return provisioningId;
     }
 
     public Cloud getCloud() {
