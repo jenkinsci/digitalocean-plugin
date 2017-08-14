@@ -159,10 +159,12 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
             final SCPClient scp = conn.createSCPClient();
 
             if (!runInitScript(computer, logger, conn, scp)) {
+                LOGGER.severe("Failed to launch: Init script failed to run " + computer.getName());
                 return;
             }
 
             if (!installJava(logger, conn)) {
+                LOGGER.severe("Failed to launch: java installation failed to run " + computer.getName());
                 return;
             }
 
