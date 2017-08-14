@@ -90,6 +90,8 @@ public class Cloud extends hudson.slaves.Cloud {
 
     private final Integer timeoutMinutes;
 
+    private final Integer connectionRetryWait;
+
     /**
      * List of {@link com.dubture.jenkins.digitalocean.SlaveTemplate}
      */
@@ -116,6 +118,7 @@ public class Cloud extends hudson.slaves.Cloud {
      * @param sshKeyId An identifier (name) for an SSH key known to DigitalOcean
      * @param instanceCap the maximum number of instances that can be started
      * @param timeoutMinutes
+     * @param connectionRetryWait the time to wait for SSH connections to work
      * @param templates the templates for this cloud
      */
     @DataBoundConstructor
@@ -125,6 +128,7 @@ public class Cloud extends hudson.slaves.Cloud {
             String sshKeyId,
             String instanceCap,
             String timeoutMinutes,
+            String connectionRetryWait,
             List<? extends SlaveTemplate> templates) {
         super(name);
 
@@ -135,6 +139,7 @@ public class Cloud extends hudson.slaves.Cloud {
         this.sshKeyId = Integer.parseInt(sshKeyId);
         this.instanceCap = Integer.parseInt(instanceCap);
         this.timeoutMinutes = timeoutMinutes == null || timeoutMinutes.isEmpty() ? 5 : Integer.parseInt(timeoutMinutes);
+        this.connectionRetryWait = connectionRetryWait == null || connectionRetryWait.isEmpty() ? 10 : Integer.parseInt(connectionRetryWait);
 
         if (templates == null) {
             this.templates = Collections.emptyList();
@@ -355,6 +360,10 @@ public class Cloud extends hudson.slaves.Cloud {
 
     public Integer getTimeoutMinutes() {
         return timeoutMinutes;
+    }
+
+    public Integer getConnectionRetryWait() {
+        return connectionRetryWait;
     }
 
     @Extension

@@ -3,6 +3,7 @@
   ~
   ~ Copyright (c) 2014 robert.gruendler@dubture.com
   ~               2016 Maxim Biro <nurupo.contributions@gmail.com>
+  ~               2017 Harald Sitter <sitter@kde.org>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -49,6 +50,10 @@
 
     <f:entry title="Timeout in minutes" field="timeoutMinutes">
         <f:textbox default="5"/>
+    </f:entry>
+
+    <f:entry title="Connection retry wait in seconds" field="connectionRetryWait">
+        <f:textbox default="10"/>
     </f:entry>
 
     <f:validateButton title="Test connection" progress="Testing API connectivity..." method="testConnection" with="authToken"/>
