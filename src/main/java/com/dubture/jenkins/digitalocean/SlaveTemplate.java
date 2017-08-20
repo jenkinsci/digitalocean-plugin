@@ -206,7 +206,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                            String authToken,
                            String privateKey,
                            Integer sshKeyId,
-                           List<Droplet> droplets)
+                           List<Droplet> droplets,
+                           Boolean usePrivateNetworking)
             throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
 
         LOGGER.log(Level.INFO, "Provisioning slave...");
@@ -225,6 +226,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setRegion(new Region(regionId));
             droplet.setImage(DigitalOcean.newImage(imageId));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
+            droplet.setEnablePrivateNetworking(usePrivateNetworking);
 
             if (!(userData == null || userData.trim().isEmpty())) {
                 droplet.setUserData(userData);

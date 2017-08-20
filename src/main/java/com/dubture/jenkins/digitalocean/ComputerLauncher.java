@@ -339,10 +339,12 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     private static String getIpAddress(Computer computer) throws RequestUnsuccessfulException, DigitalOceanException {
         Droplet instance = computer.updateInstanceDescription();
 
+        final String networkType = computer.getCloud().getUsePrivateNetworking() ? "private" : "public";
+
         for (final Network network : instance.getNetworks().getVersion4Networks()) {
-            String host = network.getIpAddress();
-            if (host != null) {
-                return host;
+            LOGGER.log(Level.INFO, "network {0} => {1}", new Object[] {network.getIpAddress(), network.getType()});
+            if (network.getType().equals(networkType)) {
+                return network.getIpAddress();
             }
         }
 
