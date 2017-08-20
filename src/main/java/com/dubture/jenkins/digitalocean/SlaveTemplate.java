@@ -113,6 +113,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final Integer instanceCap;
 
+    private final Boolean installMonitoringAgent;
+
     /**
      * User-supplied data for configuring a droplet
      */
@@ -136,13 +138,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param idleTerminationInMinutes how long to wait before destroying a slave
      * @param numExecutors the number of executors that this slave supports
      * @param labelString the label for this slave
+     * @param installMonitoring whether expanded monitoring tool agent should be installed
      * @param userData user data for DigitalOcean to apply when building the slave
      * @param initScript setup script to configure the slave
      */
     @DataBoundConstructor
     public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
                          Integer sshPort, String idleTerminationInMinutes, String numExecutors, String labelString,
-                         Boolean labellessJobsAllowed, String instanceCap, String userData, String initScript) {
+                         Boolean labellessJobsAllowed, String instanceCap, Boolean installMonitoring, String userData,
+                         String initScript) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
@@ -161,6 +165,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.labellessJobsAllowed = labellessJobsAllowed;
         this.labels = Util.fixNull(labelString);
         this.instanceCap = Integer.parseInt(instanceCap);
+        this.installMonitoringAgent = installMonitoring;
 
         this.userData = userData;
         this.initScript = initScript;
@@ -227,6 +232,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setImage(DigitalOcean.newImage(imageId));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
             droplet.setEnablePrivateNetworking(usePrivateNetworking);
+            droplet.setInstallMonitoring(installMonitoringAgent);
 
             if (!(userData == null || userData.trim().isEmpty())) {
                 droplet.setUserData(userData);
