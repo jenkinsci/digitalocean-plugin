@@ -61,6 +61,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import static com.google.common.collect.Lists.newArrayList;
+import static java.lang.String.format;
 
 /**
  * A {@link SlaveTemplate} represents the configuration values for creating a new slave via a DigitalOcean droplet.
@@ -216,7 +217,9 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             LOGGER.log(Level.INFO, "Starting to provision digital ocean droplet using image: " + imageId + " region: " + regionId + ", sizeId: " + sizeId);
 
             if (isInstanceCapReachedLocal(cloudName) || isInstanceCapReachedRemote(droplets, cloudName)) {
-                throw new AssertionError();
+                String msg = format("instance cap reached for %s in %s", dropletName, cloudName);
+                LOGGER.log(Level.INFO, msg);
+                throw new AssertionError(msg);
             }
 
             // create a new droplet
@@ -239,8 +242,9 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
             return newSlave(provisioningId, cloudName, createdDroplet, privateKey);
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, e.getMessage(), e);
-            throw new AssertionError();
+            String msg = format("Unexpected error raised during provisioning of %s:\n%s", dropletName, e.getMessage());
+            LOGGER.log(Level.WARNING,  msg, e);
+            throw new AssertionError(msg);
         }
     }
 
