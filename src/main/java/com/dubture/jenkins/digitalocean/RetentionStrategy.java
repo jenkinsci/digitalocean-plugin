@@ -66,7 +66,7 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<Computer> {
         if (idleTerminationTime > 0) {
             return System.currentTimeMillis() - computer.getIdleStartMilliseconds() > TimeUnit2.MINUTES.toMillis(idleTerminationTime);
         } else if (idleTerminationTime < 0 && computer.isIdle()) {
-            // DigitalOcaen charges for the next hour at 1:30, 2:30, 3:30, etc. up time, so kill the node
+            // DigitalOcean charges for the next hour at 1:30, 2:30, 3:30, etc. up time, so kill the node
             // if it idles and is about to get charged for next hour
             long uptimeMinutes = TimeUnit2.MILLISECONDS.toMinutes(System.currentTimeMillis() - computer.getStartTimeMillis());
 

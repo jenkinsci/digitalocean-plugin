@@ -304,10 +304,10 @@ public class Cloud extends hudson.slaves.Cloud {
     }
 
     public SlaveTemplate getTemplateBelowInstanceCap(List<Droplet> droplets, Label label) {
-        List<SlaveTemplate> matchingTempaltes = getTemplates(label);
+        List<SlaveTemplate> matchingTemplates = getTemplates(label);
 
         try {
-            for (SlaveTemplate t : matchingTempaltes) {
+            for (SlaveTemplate t : matchingTemplates) {
                 if (!t.isInstanceCapReachedLocal(name) && !t.isInstanceCapReachedRemote(droplets, name)) {
                     return t;
                 }
@@ -320,10 +320,10 @@ public class Cloud extends hudson.slaves.Cloud {
     }
 
     public SlaveTemplate getTemplateBelowInstanceCapLocal(Label label) {
-        List<SlaveTemplate> matchingTempaltes = getTemplates(label);
+        List<SlaveTemplate> matchingTemplates = getTemplates(label);
 
         try {
-            for (SlaveTemplate t : matchingTempaltes) {
+            for (SlaveTemplate t : matchingTemplates) {
                 if (!t.isInstanceCapReachedLocal(name)) {
                     return t;
                 }
@@ -390,7 +390,7 @@ public class Cloud extends hudson.slaves.Cloud {
             try {
                 DigitalOceanClient client = new DigitalOceanClient(authToken);
                 client.getAvailableDroplets(1, 10);
-                return FormValidation.ok("Digitalocean API request succeeded.");
+                return FormValidation.ok("Digital Ocean API request succeeded.");
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to connect to DigitalOcean API", e);
                 return FormValidation.error(e.getMessage());
