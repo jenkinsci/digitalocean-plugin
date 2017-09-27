@@ -323,7 +323,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 }
 
                 if (number < 0) {
-                    return FormValidation.error("Must be a nonnegative number");
+                    return FormValidation.error("Must be a non-negative number");
                 }
 
                 return FormValidation.ok();

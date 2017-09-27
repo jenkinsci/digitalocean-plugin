@@ -291,7 +291,7 @@ public final class DigitalOcean {
     private static final List<DestroyInfo> toBeDestroyedDroplets = new ArrayList<DestroyInfo>();
 
     // sometimes droplets have pending events during which you can't destroy them.
-    // one of such events in spinning up a new droplet. so we continiously try to
+    // one of such events in spinning up a new droplet. so we continuously try to
     // destroy droplets in a separate thread
     private static final Thread dropletDestroyer = new Thread(new Runnable() {
         @Override
