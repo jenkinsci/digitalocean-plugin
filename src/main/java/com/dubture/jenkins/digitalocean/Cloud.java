@@ -457,11 +457,16 @@ public class Cloud extends hudson.slaves.Cloud {
         }
 
         public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
-            List<Key> availableSizes = DigitalOcean.getAvailableKeys(authToken);
             ListBoxModel model = new ListBoxModel();
+            if (authToken.isEmpty()) {
+                // Do not even attempt to list the keys if we know the authToken isn't going to work.
+                // It only produces useless errors.
+                return model;
+            }
 
-            for (Key image : availableSizes) {
-                model.add(image.getName() + " (" + image.getFingerprint() + ")", image.getId().toString());
+            List<Key> availableSizes = DigitalOcean.getAvailableKeys(authToken);
+            for (Key key : availableSizes) {
+                model.add(key.getName() + " (" + key.getFingerprint() + ")", key.getId().toString());
             }
 
             return model;
