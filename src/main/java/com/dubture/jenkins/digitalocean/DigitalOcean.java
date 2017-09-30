@@ -200,14 +200,24 @@ public final class DigitalOcean {
             memoryUnits = "gb";
         }
 
-        return String.format("$%s/month ($%s/hour): %d%s RAM, %d CPU, %dgb Disk, %dtb Transfer",
+        final String slug = size.getSlug();
+        String type = "Regular";
+        if (slug.startsWith("c-")) {
+            type = "High CPU";
+        } else if (slug.startsWith("m-")) {
+            type = "High Memory";
+        }
+
+        return String.format("$%s/month ($%s/hour): %d%s RAM, %d CPU, %dgb Disk, %dtb Transfer (%s)",
                 size.getPriceMonthly().toString(),
                 size.getPriceHourly().toString(),
                 memory,
                 memoryUnits,
                 size.getVirutalCpuCount(),
                 size.getDiskSize(),
-                size.getTransfer());
+                size.getTransfer(),
+                type
+        );
     }
 
     static List<Key> getAvailableKeys(String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
