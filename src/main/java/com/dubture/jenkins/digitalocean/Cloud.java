@@ -283,6 +283,7 @@ public class Cloud extends hudson.slaves.Cloud {
                 }
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, e.getMessage(), e);
+                return false;
             }
 
             return true;
