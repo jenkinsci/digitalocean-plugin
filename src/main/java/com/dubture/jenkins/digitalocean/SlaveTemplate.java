@@ -496,6 +496,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return instanceCap;
     }
 
+    public boolean isInstallMonitoring() {
+        return installMonitoringAgent;
+    }
+
     public String getUserData() {
         return userData;
     }
