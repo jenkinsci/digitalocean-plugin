@@ -32,6 +32,7 @@ import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import com.myjeeva.digitalocean.pojo.Key;
+import com.thoughtworks.xstream.converters.UnmarshallingContext;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -40,6 +41,7 @@ import hudson.model.Node;
 import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.util.XStream2;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.jenkinsci.plugins.cloudstats.TrackedPlannedNode;
@@ -88,11 +90,11 @@ public class Cloud extends hudson.slaves.Cloud {
 
     private final Integer instanceCap;
 
-    private final Boolean usePrivateNetworking;
+    private Boolean usePrivateNetworking;
 
     private final Integer timeoutMinutes;
 
-    private final Integer connectionRetryWait;
+    private Integer connectionRetryWait;
 
     /**
      * List of {@link com.dubture.jenkins.digitalocean.SlaveTemplate}
@@ -374,6 +376,29 @@ public class Cloud extends hudson.slaves.Cloud {
 
     public Boolean getUsePrivateNetworking() {
         return usePrivateNetworking;
+    }
+
+    public static final class ConverterImpl extends XStream2.PassthruConverter<Cloud> {
+        public ConverterImpl(XStream2 xstream) {
+            super(xstream);
+        }
+
+        @Override
+        public boolean canConvert(Class type) {
+            return type == Cloud.class;
+        }
+
+        @Override
+        protected void callback(Cloud obj, UnmarshallingContext context) {
+            if (null == obj.connectionRetryWait) {
+                // Introduced in 0.14.
+                obj.connectionRetryWait = 10;
+            }
+            if (null == obj.usePrivateNetworking) {
+                // Introduced in 0.14.
+                obj.usePrivateNetworking = false;
+            }
+        }
     }
 
     @Extension
