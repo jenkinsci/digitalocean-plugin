@@ -27,6 +27,7 @@
 package com.dubture.jenkins.digitalocean;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -116,6 +117,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final Boolean installMonitoringAgent;
 
+    private final String tags;
+
     /**
      * User-supplied data for configuring a droplet
      */
@@ -140,14 +143,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param numExecutors the number of executors that this slave supports
      * @param labelString the label for this slave
      * @param installMonitoring whether expanded monitoring tool agent should be installed
+     * @param tags the droplet tags
      * @param userData user data for DigitalOcean to apply when building the slave
      * @param initScript setup script to configure the slave
      */
     @DataBoundConstructor
     public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
                          Integer sshPort, String idleTerminationInMinutes, String numExecutors, String labelString,
-                         Boolean labellessJobsAllowed, String instanceCap, Boolean installMonitoring, String userData,
-                         String initScript) {
+                         Boolean labellessJobsAllowed, String instanceCap, Boolean installMonitoring, String tags,
+                         String userData, String initScript) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
@@ -167,6 +171,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.labels = Util.fixNull(labelString);
         this.instanceCap = Integer.parseInt(instanceCap);
         this.installMonitoringAgent = installMonitoring;
+        this.tags = tags;
 
         this.userData = userData;
         this.initScript = initScript;
@@ -236,6 +241,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
             droplet.setEnablePrivateNetworking(usePrivateNetworking);
             droplet.setInstallMonitoring(installMonitoringAgent);
+            droplet.setTags(Arrays.asList(Util.tokenize(Util.fixNull(tags))));
 
             if (!(userData == null || userData.trim().isEmpty())) {
                 droplet.setUserData(userData);
@@ -498,6 +504,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public boolean isInstallMonitoring() {
         return installMonitoringAgent;
+    }
+
+    public String getTags() {
+        return tags;
     }
 
     public String getUserData() {
