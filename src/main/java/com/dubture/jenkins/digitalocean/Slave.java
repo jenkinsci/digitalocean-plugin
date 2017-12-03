@@ -76,9 +76,6 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     private final int sshPort;
 
-    /**
-     * {@link Slave}s are created by {@link SlaveTemplate}s
-     */
     public Slave(ProvisioningActivity.Id provisioningId, String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
                  String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
                  Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
@@ -144,8 +141,8 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
      * Deletes the {@link com.myjeeva.digitalocean.pojo.Droplet} when not needed anymore.
      *
      * @param listener Unused
-     * @throws IOException
-     * @throws InterruptedException
+     * @throws IOException which is thrown in case of file system errors.
+     * @throws InterruptedException in case the thread itself is interrupted.
      */
     @Override
     protected void _terminate(TaskListener listener) throws IOException, InterruptedException {

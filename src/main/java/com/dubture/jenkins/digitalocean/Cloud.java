@@ -122,7 +122,7 @@ public class Cloud extends hudson.slaves.Cloud {
      * @param sshKeyId An identifier (name) for an SSH key known to DigitalOcean
      * @param instanceCap the maximum number of instances that can be started
      * @param usePrivateNetworking Whether to use private networking to connect to the cloud.
-     * @param timeoutMinutes
+     * @param timeoutMinutes the timeout in minutes.
      * @param connectionRetryWait the time to wait for SSH connections to work
      * @param templates the templates for this cloud
      */
@@ -211,9 +211,9 @@ public class Cloud extends hudson.slaves.Cloud {
     /**
      * The actual logic for provisioning a new droplet when it's needed by Jenkins.
      *
-     * @param label
-     * @param excessWorkload
-     * @return
+     * @param label name of the field
+     * @param excessWorkload if the workload can be overloaded
+     * @return the number of planned nodes
      */
     @Override
     public Collection<NodeProvisioner.PlannedNode> provision(final Label label, int excessWorkload) {

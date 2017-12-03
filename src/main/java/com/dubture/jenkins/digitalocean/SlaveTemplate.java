@@ -69,7 +69,7 @@ import static java.lang.String.format;
  *
  * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * <p>The {@link SlaveTemplate#provision(String, String, String, String, Integer, List<Droplet>)} method
+ * <p>The {@link SlaveTemplate#provision} method
  * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
