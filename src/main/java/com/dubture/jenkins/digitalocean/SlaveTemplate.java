@@ -285,13 +285,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 sshPort,
                 numExecutors,
                 idleTerminationInMinutes,
-                Node.Mode.NORMAL,
                 labels,
                 new ComputerLauncher(),
                 new RetentionStrategy(),
                 Collections.emptyList(),
-                Util.fixNull(initScript),
-                ""
+                Util.fixNull(initScript)
         );
     }
 
