@@ -52,7 +52,7 @@ public class Computer extends AbstractCloudComputer<Slave> implements TrackedIte
 
     private final String authToken;
 
-    private Integer dropletId;
+    private final Integer dropletId;
 
     public Computer(Slave slave) {
         super(slave);

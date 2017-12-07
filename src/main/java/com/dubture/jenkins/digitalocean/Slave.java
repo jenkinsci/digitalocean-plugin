@@ -37,6 +37,7 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.jenkinsci.plugins.cloudstats.TrackedItem;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
@@ -78,11 +79,11 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     public Slave(ProvisioningActivity.Id provisioningId, String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
                  String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
-                 Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
-                 List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmOpts)
+                 String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
+                 List<? extends NodeProperty<?>> nodeProperties, String initScript)
             throws Descriptor.FormException, IOException {
 
-        super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy, nodeProperties);
+        super(name, nodeDescription, remoteFS, numExecutors, Mode.NORMAL, labelString, launcher, retentionStrategy, nodeProperties);
 
         this.provisioningId = provisioningId;
         this.cloudName = cloudName;
@@ -91,14 +92,14 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
         this.remoteAdmin = remoteAdmin;
         this.idleTerminationTime = idleTerminationTime;
         this.initScript = initScript;
-        this.jvmOpts = jvmOpts;
+        this.jvmOpts = "";
         this.sshPort = sshPort;
         startTimeMillis = System.currentTimeMillis();
     }
 
     @Extension
     public static class DescriptorImpl extends SlaveDescriptor {
-
+        @Nonnull
         @Override
         public String getDisplayName() {
             return "DigitalOcean Slave";

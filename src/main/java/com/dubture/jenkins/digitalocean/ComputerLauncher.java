@@ -85,9 +85,9 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
             return conn.exec(command, logger) == 0;
         }
 
-        protected int installJava(Connection conn, PrintStream logger, Iterable<String> javaVersion) throws IOException, InterruptedException {
+        protected int installJava(Connection conn, PrintStream logger) throws IOException, InterruptedException {
             int result = 1;
-            for (String version : javaVersion) {
+            for (String version : ComputerLauncher.VALID_VERSIONS) {
                 result = conn.exec(getInstallCommand(version), logger);
                 if (result == 0) {
                     return result;
@@ -251,7 +251,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
                 if (!installer.isUsable(conn, logger)) {
                     continue;
                 }
-                if (installer.installJava(conn, logger, VALID_VERSIONS) == 0) {
+                if (installer.installJava(conn, logger) == 0) {
                     return true;
                 }
             }
@@ -361,10 +361,10 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         return -1;
     }
 
-    protected String buildUpCommand(Computer computer, String command) {
-        if (!computer.getRemoteAdmin().equals("root")) {
+    private String buildUpCommand(Computer computer, String command) {
+//        if (!computer.getRemoteAdmin().equals("root")) {
 //            command = computer.getRootCommandPrefix() + " " + command;
-        }
+//        }
         return command;
     }
 

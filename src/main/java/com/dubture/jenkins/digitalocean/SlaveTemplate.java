@@ -53,13 +53,14 @@ import hudson.model.Descriptor;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.labels.LabelAtom;
-import hudson.slaves.NodeProperty;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
+
+import javax.annotation.Nonnull;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
@@ -253,8 +254,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             Droplet createdDroplet = apiClient.createDroplet(droplet);
 
             return newSlave(provisioningId, cloudName, createdDroplet, privateKey);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            String msg = format("Unexpected error raised during provisioning of %s:\n%s", dropletName, e.getMessage());
+            String msg = format("Unexpected error raised during provisioning of %s:%n%s", dropletName, e.getMessage());
             LOGGER.log(Level.WARNING,  msg, e);
             throw new AssertionError(msg);
         }
@@ -282,22 +285,20 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 sshPort,
                 numExecutors,
                 idleTerminationInMinutes,
-                Node.Mode.NORMAL,
                 labels,
                 new ComputerLauncher(),
                 new RetentionStrategy(),
-                Collections.<NodeProperty<?>>emptyList(),
-                Util.fixNull(initScript),
-                ""
+                Collections.emptyList(),
+                Util.fixNull(initScript)
         );
     }
 
     @Extension
     public static final class DescriptorImpl extends Descriptor<SlaveTemplate> {
-
+        @Nonnull
         @Override
         public String getDisplayName() {
-            return null;
+            return "Digital Ocean Slave Template";
         }
 
         public FormValidation doCheckName(@QueryParameter String name) {
@@ -374,10 +375,9 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             if (Strings.isNullOrEmpty(idleTerminationInMinutes)) {
                 return FormValidation.error("Must be set");
             } else {
-                int number;
-
                 try {
-                    number = Integer.parseInt(idleTerminationInMinutes);
+                    //noinspection ResultOfMethodCallIgnored
+                    Integer.parseInt(idleTerminationInMinutes);
                 } catch (Exception e) {
                     return FormValidation.error("Must be a number");
                 }

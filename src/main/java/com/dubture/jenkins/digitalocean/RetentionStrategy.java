@@ -30,6 +30,8 @@ import hudson.model.Descriptor;
 import hudson.slaves.CloudSlaveRetentionStrategy;
 import hudson.util.TimeUnit2;
 
+import javax.annotation.Nonnull;
+
 /**
  *
  * The {@link RetentionStrategy} is mainly used to determine
@@ -39,7 +41,8 @@ import hudson.util.TimeUnit2;
  */
 public class RetentionStrategy extends CloudSlaveRetentionStrategy<Computer> {
 
-    public static class DescriptorImpl extends Descriptor<hudson.slaves.RetentionStrategy<?>> {
+    private static class DescriptorImpl extends Descriptor<hudson.slaves.RetentionStrategy<?>> {
+        @Nonnull
         @Override
         public String getDisplayName() {
             return "DigitalOcean";
