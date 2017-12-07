@@ -361,10 +361,10 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         return -1;
     }
 
-    protected String buildUpCommand(Computer computer, String command) {
-        if (!computer.getRemoteAdmin().equals("root")) {
+    private String buildUpCommand(Computer computer, String command) {
+//        if (!computer.getRemoteAdmin().equals("root")) {
 //            command = computer.getRootCommandPrefix() + " " + command;
-        }
+//        }
         return command;
     }
 

@@ -62,7 +62,7 @@ public final class DigitalOcean {
     static List<Size> getAvailableSizes(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
-        List<Size> availableSizes = new ArrayList<Size>();
+        List<Size> availableSizes = new ArrayList<>();
         int page = 0;
         Sizes sizes;
 
@@ -73,12 +73,7 @@ public final class DigitalOcean {
         }
         while (sizes.getMeta().getTotal() > availableSizes.size());
 
-        Collections.sort(availableSizes, new Comparator<Size>() {
-            @Override
-            public int compare(final Size s1, final Size s2) {
-                return s1.getMemorySizeInMb().compareTo(s2.getMemorySizeInMb());
-            }
-        });
+        availableSizes.sort(Comparator.comparing(Size::getMemorySizeInMb));
 
         return availableSizes;
     }
@@ -96,7 +91,7 @@ public final class DigitalOcean {
     static SortedMap<String,Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
-        SortedMap<String,Image> availableImages = new TreeMap<String,Image>(ignoringCase());
+        SortedMap<String,Image> availableImages = new TreeMap<>(ignoringCase());
 
         Images images;
         int page = 0;
@@ -158,7 +153,7 @@ public final class DigitalOcean {
     static List<Region> getAvailableRegions(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
-        List<Region> availableRegions = new ArrayList<Region>();
+        List<Region> availableRegions = new ArrayList<>();
         Regions regions;
         int page = 0;
 
@@ -169,12 +164,7 @@ public final class DigitalOcean {
         }
         while (regions.getMeta().getTotal() > availableRegions.size());
 
-        Collections.sort(availableRegions, new Comparator<Region>() {
-            @Override
-            public int compare(final Region r1, final Region r2) {
-                return r1.getName().compareTo(r2.getName());
-            }
-        });
+        availableRegions.sort(Comparator.comparing(Region::getName));
 
         return availableRegions;
     }
@@ -223,7 +213,7 @@ public final class DigitalOcean {
     static List<Key> getAvailableKeys(String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
 
         DigitalOceanClient client = new DigitalOceanClient(authToken);
-        List<Key> availableKeys = new ArrayList<Key>();
+        List<Key> availableKeys = new ArrayList<>();
 
         Keys keys;
         int page = 0;
@@ -298,92 +288,89 @@ public final class DigitalOcean {
         }
     }
 
-    private static final List<DestroyInfo> toBeDestroyedDroplets = new ArrayList<DestroyInfo>();
+    private static final List<DestroyInfo> toBeDestroyedDroplets = new ArrayList<>();
 
     // sometimes droplets have pending events during which you can't destroy them.
     // one of such events in spinning up a new droplet. so we continuously try to
     // destroy droplets in a separate thread
-    private static final Thread dropletDestroyer = new Thread(new Runnable() {
-        @Override
-        public void run() {
+    private static final Thread dropletDestroyer = new Thread(() -> {
 
-            do {
-                String previousAuthToken = null;
-                DigitalOceanClient client = null;
-                List<Droplet> droplets = null;
-                boolean failedToDestroy = false;
+        do {
+            String previousAuthToken = null;
+            DigitalOceanClient client = null;
+            List<Droplet> droplets = null;
+            boolean failedToDestroy = false;
 
-                synchronized (toBeDestroyedDroplets) {
-                    Iterator<DestroyInfo> it = toBeDestroyedDroplets.iterator();
-                    while (it.hasNext()) {
-                        DestroyInfo di = it.next();
+            synchronized (toBeDestroyedDroplets) {
+                Iterator<DestroyInfo> it = toBeDestroyedDroplets.iterator();
+                while (it.hasNext()) {
+                    DestroyInfo di = it.next();
 
-                        // the list should be sorted by di.authToken to prevent unnecessary DigitalOceanClient recreation
-                        if (di.authToken != previousAuthToken) {
-                            previousAuthToken = di.authToken;
-                            client = new DigitalOceanClient(di.authToken);
-                            // new auth token -- new list of droplets
-                            droplets = null;
-                        }
-
-                        try {
-                            LOGGER.info("Trying to destroy droplet " + di.dropletId);
-                            client.deleteDroplet(di.dropletId);
-                            LOGGER.info("Droplet " + di.dropletId + " is destroyed");
-                            it.remove();
-                        } catch (Exception e) {
-                            // check if such droplet even exist in the first place
-                            if (droplets == null) {
-                                try {
-                                    droplets = client.getAvailableDroplets(1, Integer.MAX_VALUE).getDroplets();
-                                } catch (Exception ee) {
-                                    // ignore
-                                }
-                            }
-                            if (droplets != null) {
-                                boolean found = false;
-                                for (Droplet d : droplets) {
-                                    if (d.getId() == di.dropletId) {
-                                        found = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!found) {
-                                    // such droplet doesn't exist, stop trying to destroy it you dummy
-                                    LOGGER.info("Droplet " + di.dropletId + " doesn't even exist, stop trying to destroy it you dummy!");
-                                    it.remove();
-                                    continue;
-                                }
-                            }
-                            // such droplet might exist, so let's retry later
-                            failedToDestroy = true;
-                            LOGGER.warning("Failed to destroy droplet " + di.dropletId);
-                            LOGGER.log(Level.WARNING, e.getMessage(), e);
-                        }
+                    // the list should be sorted by di.authToken to prevent unnecessary DigitalOceanClient recreation
+                    if (!di.authToken.equals(previousAuthToken)) {
+                        previousAuthToken = di.authToken;
+                        client = new DigitalOceanClient(di.authToken);
+                        // new auth token -- new list of droplets
+                        droplets = null;
                     }
 
-                    if (failedToDestroy) {
-                        LOGGER.info("Retrying to destroy the droplets in about 10 seconds");
-                        try {
-                            // sleep for 10 seconds, but wake up earlier if notified
-                            toBeDestroyedDroplets.wait(10000);
-                        } catch (InterruptedException e) {
-                            // ignore
-                        }
-                    } else {
-                        LOGGER.info("Waiting on more droplets to destroy");
-                        while (toBeDestroyedDroplets.isEmpty()) {
+                    try {
+                        LOGGER.info("Trying to destroy droplet " + di.dropletId);
+                        client.deleteDroplet(di.dropletId);
+                        LOGGER.info("Droplet " + di.dropletId + " is destroyed");
+                        it.remove();
+                    } catch (Exception e) {
+                        // check if such droplet even exist in the first place
+                        if (droplets == null) {
                             try {
-                                toBeDestroyedDroplets.wait();
-                            } catch (InterruptedException e) {
+                                droplets = client.getAvailableDroplets(1, Integer.MAX_VALUE).getDroplets();
+                            } catch (Exception ee) {
                                 // ignore
                             }
                         }
+                        if (droplets != null) {
+                            boolean found = false;
+                            for (Droplet d : droplets) {
+                                if (d.getId() == di.dropletId) {
+                                    found = true;
+                                    break;
+                                }
+                            }
+
+                            if (!found) {
+                                // such droplet doesn't exist, stop trying to destroy it you dummy
+                                LOGGER.info("Droplet " + di.dropletId + " doesn't even exist, stop trying to destroy it you dummy!");
+                                it.remove();
+                                continue;
+                            }
+                        }
+                        // such droplet might exist, so let's retry later
+                        failedToDestroy = true;
+                        LOGGER.warning("Failed to destroy droplet " + di.dropletId);
+                        LOGGER.log(Level.WARNING, e.getMessage(), e);
                     }
                 }
-            } while (true);
-        }
+
+                if (failedToDestroy) {
+                    LOGGER.info("Retrying to destroy the droplets in about 10 seconds");
+                    try {
+                        // sleep for 10 seconds, but wake up earlier if notified
+                        toBeDestroyedDroplets.wait(10000);
+                    } catch (InterruptedException e) {
+                        // ignore
+                    }
+                } else {
+                    LOGGER.info("Waiting on more droplets to destroy");
+                    while (toBeDestroyedDroplets.isEmpty()) {
+                        try {
+                            toBeDestroyedDroplets.wait();
+                        } catch (InterruptedException e) {
+                            // ignore
+                        }
+                    }
+                }
+            }
+        } while (true);
     });
 
     static void tryDestroyDropletAsync(final String authToken, final int dropletId) {
@@ -393,12 +380,7 @@ public final class DigitalOcean {
             toBeDestroyedDroplets.add(new DestroyInfo(authToken, dropletId));
 
             // sort by authToken
-            Collections.sort(toBeDestroyedDroplets, new Comparator<DestroyInfo>() {
-                @Override
-                public int compare(DestroyInfo o1, DestroyInfo o2) {
-                    return o1.authToken.compareTo(o2.authToken);
-                }
-            });
+            toBeDestroyedDroplets.sort(Comparator.comparing(o -> o.authToken));
 
             toBeDestroyedDroplets.notifyAll();
 
@@ -409,11 +391,6 @@ public final class DigitalOcean {
     }
 
     private static Comparator<String> ignoringCase() {
-        return new Comparator<String>() {
-            @Override
-            public int compare(final String o1, final String o2) {
-                return o1.compareToIgnoreCase(o2);
-            }
-        };
+        return String::compareToIgnoreCase;
     }
 }

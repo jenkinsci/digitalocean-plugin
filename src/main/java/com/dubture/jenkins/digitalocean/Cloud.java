@@ -55,7 +55,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -157,7 +156,7 @@ public class Cloud extends hudson.slaves.Cloud {
         LOGGER.info("Creating DigitalOcean cloud with " + this.templates.size() + " templates");
     }
 
-    public boolean isInstanceCapReachedLocal() {
+    private boolean isInstanceCapReachedLocal() {
         if (instanceCap == 0) {
             return false;
         }
@@ -176,7 +175,7 @@ public class Cloud extends hudson.slaves.Cloud {
         return count >= Math.min(instanceCap, getSlaveInstanceCap());
     }
 
-    public boolean isInstanceCapReachedRemote(List<Droplet> droplets) throws RequestUnsuccessfulException, DigitalOceanException {
+    private boolean isInstanceCapReachedRemote(List<Droplet> droplets) {
 
         int count = 0;
 
@@ -218,7 +217,7 @@ public class Cloud extends hudson.slaves.Cloud {
     @Override
     public Collection<NodeProvisioner.PlannedNode> provision(final Label label, int excessWorkload) {
         synchronized (provisionSynchronizor) {
-            List<NodeProvisioner.PlannedNode> provisioningNodes = new ArrayList<NodeProvisioner.PlannedNode>();
+            List<NodeProvisioner.PlannedNode> provisioningNodes = new ArrayList<>();
             try {
                 while (excessWorkload > 0) {
 
@@ -237,23 +236,21 @@ public class Cloud extends hudson.slaves.Cloud {
                     final String dropletName = DropletName.generateDropletName(name, template.getName());
 
                     final ProvisioningActivity.Id provisioningId = new ProvisioningActivity.Id(this.name, template.getName(), dropletName);
-                    provisioningNodes.add(new TrackedPlannedNode(provisioningId, template.getNumExecutors(), Computer.threadPoolForRemoting.submit(new Callable<Node>() {
-                        public Node call() throws Exception {
-                            Slave slave;
-                            synchronized (provisionSynchronizor) {
-                                List<Droplet> droplets = DigitalOcean.getDroplets(authToken);
+                    provisioningNodes.add(new TrackedPlannedNode(provisioningId, template.getNumExecutors(), Computer.threadPoolForRemoting.submit(() -> {
+                        Slave slave;
+                        synchronized (provisionSynchronizor) {
+                            List<Droplet> droplets1 = DigitalOcean.getDroplets(authToken);
 
-                                if (isInstanceCapReachedLocal() || isInstanceCapReachedRemote(droplets)) {
-                                    LOGGER.log(Level.INFO, "Instance cap reached, not provisioning.");
-                                    return null;
-                                }
-                                slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
-                                                           sshKeyId, droplets, usePrivateNetworking);
+                            if (isInstanceCapReachedLocal() || isInstanceCapReachedRemote(droplets1)) {
+                                LOGGER.log(Level.INFO, "Instance cap reached, not provisioning.");
+                                return null;
                             }
-                            Jenkins.getInstance().addNode(slave);
-                            slave.toComputer().connect(false).get();
-                            return slave;
+                            slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
+                                                       sshKeyId, droplets1, usePrivateNetworking);
                         }
+                        Jenkins.getInstance().addNode(slave);
+                        slave.toComputer().connect(false).get();
+                        return slave;
                     })));
 
                     excessWorkload -= template.getNumExecutors();
@@ -292,8 +289,8 @@ public class Cloud extends hudson.slaves.Cloud {
         }
     }
 
-    public List<SlaveTemplate> getTemplates(Label label) {
-        List<SlaveTemplate> matchingTemplates = new ArrayList<SlaveTemplate>();
+    private List<SlaveTemplate> getTemplates(Label label) {
+        List<SlaveTemplate> matchingTemplates = new ArrayList<>();
 
         for (SlaveTemplate t : templates) {
             if ((label == null && t.getLabelSet().size() == 0) ||
@@ -306,7 +303,7 @@ public class Cloud extends hudson.slaves.Cloud {
         return matchingTemplates;
     }
 
-    public SlaveTemplate getTemplateBelowInstanceCap(List<Droplet> droplets, Label label) {
+    private SlaveTemplate getTemplateBelowInstanceCap(List<Droplet> droplets, Label label) {
         List<SlaveTemplate> matchingTemplates = getTemplates(label);
 
         try {
@@ -322,7 +319,7 @@ public class Cloud extends hudson.slaves.Cloud {
         return null;
     }
 
-    public SlaveTemplate getTemplateBelowInstanceCapLocal(Label label) {
+    private SlaveTemplate getTemplateBelowInstanceCapLocal(Label label) {
         List<SlaveTemplate> matchingTemplates = getTemplates(label);
 
         try {
@@ -354,7 +351,7 @@ public class Cloud extends hudson.slaves.Cloud {
         return sshKeyId;
     }
 
-    public int getInstanceCap() {
+    private int getInstanceCap() {
         return instanceCap;
     }
 
@@ -378,7 +375,7 @@ public class Cloud extends hudson.slaves.Cloud {
         return usePrivateNetworking;
     }
 
-    public static final class ConverterImpl extends XStream2.PassthruConverter<Cloud> {
+    private static final class ConverterImpl extends XStream2.PassthruConverter<Cloud> {
         public ConverterImpl(XStream2 xstream) {
             super(xstream);
         }

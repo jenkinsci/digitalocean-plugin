@@ -37,6 +37,7 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.jenkinsci.plugins.cloudstats.TrackedItem;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
@@ -98,7 +99,7 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     @Extension
     public static class DescriptorImpl extends SlaveDescriptor {
-
+        @Nonnull
         @Override
         public String getDisplayName() {
             return "DigitalOcean Slave";
