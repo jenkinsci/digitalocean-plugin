@@ -27,7 +27,7 @@ package com.dubture.jenkins.digitalocean;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class CloudTest {
+public class DigitalOceanCloudTest {
 
     /*
     @Rule
@@ -40,8 +40,8 @@ public class CloudTest {
         /*
         List<SlaveTemplate> templates = new ArrayList<SlaveTemplate>();
         templates.add(new SlaveTemplate("444", "4", "4", "4", "10", ""));
-        jenkinsRule.getInstance().clouds.add(new Cloud("foo", "key", "id", "key", "2", templates));
-        hudson.slaves.Cloud foo = jenkinsRule.getInstance().getCloud("foo");
+        jenkinsRule.getInstance().clouds.add(new DigitalOceanCloud("foo", "key", "id", "key", "2", templates));
+        hudson.slaves.DigitalOceanCloud foo = jenkinsRule.getInstance().getCloud("foo");
         jenkinsRule.createSlave();
         List<Node> nodes = jenkinsRule.getInstance().getNodes();
         */

@@ -26,6 +26,16 @@
 
 package com.dubture.jenkins.digitalocean;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
@@ -38,6 +48,7 @@ import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.Label;
 import hudson.model.Node;
+import hudson.slaves.Cloud;
 import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
@@ -48,31 +59,21 @@ import org.jenkinsci.plugins.cloudstats.TrackedPlannedNode;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 /**
- *
- * The {@link com.dubture.jenkins.digitalocean.Cloud} contains the main configuration values for running
+ * The {@link DigitalOceanCloud} contains the main configuration values for running
  * slaves on DigitalOcean, e.g. apiKey/clientId to connect to the API.
- *
- * The {@link com.dubture.jenkins.digitalocean.Cloud#provision(hudson.model.Label, int)} method will be called
+ * <p>
+ * The {@link DigitalOceanCloud#provision(hudson.model.Label, int)} method will be called
  * by Jenkins as soon as a new slave needs to be provisioned.
- *
+ * <p>
  * The number of
  *
  * @author robert.gruendler@dubture.com
  */
-public class Cloud extends hudson.slaves.Cloud {
+public class DigitalOceanCloud extends Cloud {
     /**
      * The DigitalOcean API auth token
+     *
      * @see "https://developers.digitalocean.com/documentation/v2/#authentication"
      */
     private final String authToken;
@@ -100,7 +101,7 @@ public class Cloud extends hudson.slaves.Cloud {
      */
     private final List<? extends SlaveTemplate> templates;
 
-    private static final Logger LOGGER = Logger.getLogger(Cloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(DigitalOceanCloud.class.getName());
 
     /**
      * Sometimes nodes can be provisioned very fast (or in parallel), leading to more nodes being
@@ -115,29 +116,30 @@ public class Cloud extends hudson.slaves.Cloud {
 
     /**
      * Constructor parameters are injected via jelly in the jenkins global configuration
-     * @param name A name associated with this cloud configuration
-     * @param authToken A DigitalOcean V2 API authentication token, generated on their website.
-     * @param privateKey An RSA private key in text format
-     * @param sshKeyId An identifier (name) for an SSH key known to DigitalOcean
-     * @param instanceCap the maximum number of instances that can be started
+     *
+     * @param name                 A name associated with this cloud configuration
+     * @param authToken            A DigitalOcean V2 API authentication token, generated on their website.
+     * @param privateKey           An RSA private key in text format
+     * @param sshKeyId             An identifier (name) for an SSH key known to DigitalOcean
+     * @param instanceCap          the maximum number of instances that can be started
      * @param usePrivateNetworking Whether to use private networking to connect to the cloud.
-     * @param timeoutMinutes the timeout in minutes.
-     * @param connectionRetryWait the time to wait for SSH connections to work
-     * @param templates the templates for this cloud
+     * @param timeoutMinutes       the timeout in minutes.
+     * @param connectionRetryWait  the time to wait for SSH connections to work
+     * @param templates            the templates for this cloud
      */
     @DataBoundConstructor
-    public Cloud(String name,
-            String authToken,
-            String privateKey,
-            String sshKeyId,
-            String instanceCap,
-            Boolean usePrivateNetworking,
-            String timeoutMinutes,
-            String connectionRetryWait,
-            List<? extends SlaveTemplate> templates) {
+    public DigitalOceanCloud(String name,
+                             String authToken,
+                             String privateKey,
+                             String sshKeyId,
+                             String instanceCap,
+                             Boolean usePrivateNetworking,
+                             String timeoutMinutes,
+                             String connectionRetryWait,
+                             List<? extends SlaveTemplate> templates) {
         super(name);
 
-        LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
+        LOGGER.log(Level.INFO, "Constructing new DigitalOceanCloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
 
         this.authToken = authToken;
         this.privateKey = privateKey;
@@ -168,7 +170,7 @@ public class Cloud extends hudson.slaves.Cloud {
         List<Node> nodes = Jenkins.getInstance().getNodes();
         for (Node n : nodes) {
             if (DropletName.isDropletInstanceOfCloud(n.getDisplayName(), name)) {
-                count ++;
+                count++;
             }
         }
 
@@ -184,7 +186,7 @@ public class Cloud extends hudson.slaves.Cloud {
         for (Droplet droplet : droplets) {
             if (droplet.isActive() || droplet.isNew()) {
                 if (DropletName.isDropletInstanceOfCloud(droplet.getName(), name)) {
-                    count ++;
+                    count++;
                 }
             }
         }
@@ -210,7 +212,7 @@ public class Cloud extends hudson.slaves.Cloud {
     /**
      * The actual logic for provisioning a new droplet when it's needed by Jenkins.
      *
-     * @param label name of the field
+     * @param label          name of the field
      * @param excessWorkload if the workload can be overloaded
      * @return the number of planned nodes
      */
@@ -246,7 +248,7 @@ public class Cloud extends hudson.slaves.Cloud {
                                 return null;
                             }
                             slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
-                                                       sshKeyId, droplets1, usePrivateNetworking);
+                                    sshKeyId, droplets1, usePrivateNetworking);
                         }
                         Jenkins.getInstance().addNode(slave);
                         slave.toComputer().connect(false).get();
@@ -375,18 +377,18 @@ public class Cloud extends hudson.slaves.Cloud {
         return usePrivateNetworking;
     }
 
-    private static final class ConverterImpl extends XStream2.PassthruConverter<Cloud> {
+    private static final class ConverterImpl extends XStream2.PassthruConverter<DigitalOceanCloud> {
         public ConverterImpl(XStream2 xstream) {
             super(xstream);
         }
 
         @Override
         public boolean canConvert(Class type) {
-            return type == Cloud.class;
+            return type == DigitalOceanCloud.class;
         }
 
         @Override
-        protected void callback(Cloud obj, UnmarshallingContext context) {
+        protected void callback(DigitalOceanCloud obj, UnmarshallingContext context) {
             if (null == obj.connectionRetryWait) {
                 // Introduced in 0.14.
                 obj.connectionRetryWait = 10;
@@ -439,18 +441,18 @@ public class Cloud extends hudson.slaves.Cloud {
         }
 
         public FormValidation doCheckPrivateKey(@QueryParameter String value) throws IOException {
-            boolean hasStart=false,hasEnd=false;
+            boolean hasStart = false, hasEnd = false;
             BufferedReader br = new BufferedReader(new StringReader(value));
             String line;
             while ((line = br.readLine()) != null) {
                 if (line.equals("-----BEGIN RSA PRIVATE KEY-----"))
-                    hasStart=true;
+                    hasStart = true;
                 if (line.equals("-----END RSA PRIVATE KEY-----"))
-                    hasEnd=true;
+                    hasEnd = true;
             }
-            if(!hasStart)
+            if (!hasStart)
                 return FormValidation.error("This doesn't look like a private key at all");
-            if(!hasEnd)
+            if (!hasEnd)
                 return FormValidation.error("The private key is missing the trailing 'END RSA PRIVATE KEY' marker. Copy&paste error?");
             return FormValidation.ok();
         }

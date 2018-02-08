@@ -39,7 +39,7 @@ import javax.annotation.Nonnull;
  *
  * @author robert.gruendler@dubture.com
  */
-public class RetentionStrategy extends CloudSlaveRetentionStrategy<Computer> {
+public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanComputer> {
 
     private static class DescriptorImpl extends Descriptor<hudson.slaves.RetentionStrategy<?>> {
         @Nonnull
@@ -49,8 +49,8 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<Computer> {
         }
     }
 
-    public void start(Computer computer) {
-        computer.connect(false);
+    public void start(DigitalOceanComputer digitalOceanComputer) {
+        digitalOceanComputer.connect(false);
     }
 
     @Override
@@ -59,19 +59,25 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<Computer> {
     }
 
     @Override
-    protected boolean isIdleForTooLong(Computer computer) {
-        int idleTerminationTime = computer.getNode().getIdleTerminationTime();
+    protected boolean isIdleForTooLong(DigitalOceanComputer digitalOceanComputer) {
+        Slave node = digitalOceanComputer.getNode();
+
+        if(node == null) {
+            return false;
+        }
+
+        int idleTerminationTime = node.getIdleTerminationTime();
 
         if (idleTerminationTime == 0) {
             return false;
         }
 
         if (idleTerminationTime > 0) {
-            return System.currentTimeMillis() - computer.getIdleStartMilliseconds() > TimeUnit2.MINUTES.toMillis(idleTerminationTime);
-        } else if (idleTerminationTime < 0 && computer.isIdle()) {
+            return System.currentTimeMillis() - digitalOceanComputer.getIdleStartMilliseconds() > TimeUnit2.MINUTES.toMillis(idleTerminationTime);
+        } else if (idleTerminationTime < 0 && digitalOceanComputer.isIdle()) {
             // DigitalOcean charges for the next hour at 1:30, 2:30, 3:30, etc. up time, so kill the node
             // if it idles and is about to get charged for next hour
-            long uptimeMinutes = TimeUnit2.MILLISECONDS.toMinutes(System.currentTimeMillis() - computer.getStartTimeMillis());
+            long uptimeMinutes = TimeUnit2.MILLISECONDS.toMinutes(System.currentTimeMillis() - digitalOceanComputer.getStartTimeMillis());
 
             if (uptimeMinutes < 60) {
                 return false;

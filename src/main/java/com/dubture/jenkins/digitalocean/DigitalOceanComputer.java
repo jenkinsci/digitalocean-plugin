@@ -30,6 +30,7 @@ import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.slaves.AbstractCloudComputer;
 import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.jenkinsci.plugins.cloudstats.TrackedItem;
@@ -40,13 +41,13 @@ import java.util.logging.Logger;
  *
  * A {@link hudson.model.Computer} implementation for DigitalOcean. Holds a handle to an {@link Slave}.
  *
- * <p>Mainly responsible for updating the {@link Droplet} information via {@link Computer#updateInstanceDescription()}
+ * <p>Mainly responsible for updating the {@link Droplet} information via {@link DigitalOceanComputer#updateInstanceDescription()}
  *
  * @author robert.gruendler@dubture.com
  */
-public class Computer extends AbstractCloudComputer<Slave> implements TrackedItem {
+public class DigitalOceanComputer extends AbstractCloudComputer<Slave> implements TrackedItem {
 
-    private static final Logger LOGGER = Logger.getLogger(Computer.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(DigitalOceanComputer.class.getName());
 
     private final ProvisioningActivity.Id provisioningId;
 
@@ -54,7 +55,7 @@ public class Computer extends AbstractCloudComputer<Slave> implements TrackedIte
 
     private final Integer dropletId;
 
-    public Computer(Slave slave) {
+    public DigitalOceanComputer(Slave slave) {
         super(slave);
         provisioningId = slave.getId();
         dropletId = slave.getDropletId();
@@ -79,18 +80,32 @@ public class Computer extends AbstractCloudComputer<Slave> implements TrackedIte
         return provisioningId;
     }
 
-    public Cloud getCloud() {
+    @SuppressFBWarnings(
+            value="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+            justification="I don't know what else to do in case this is null.")
+    public DigitalOceanCloud getCloud() {
         return getNode().getCloud();
     }
 
+    @SuppressFBWarnings(
+            value="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+            justification="I don't know what else to do in case this is null.")
     public int getSshPort() {
         return getNode().getSshPort();
     }
 
+    @SuppressFBWarnings(
+            value="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+            justification="I don't know what else to do in case this is null.")
     public String getRemoteAdmin() {
         return getNode().getRemoteAdmin();
     }
+
+    @SuppressFBWarnings(
+            value="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+            justification="I don't know what else to do in case this is null.")
     public long getStartTimeMillis() {
         return getNode().getStartTimeMillis();
     }
+
 }

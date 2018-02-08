@@ -137,12 +137,18 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     /**
      * Data is injected from the global Jenkins configuration via jelly.
+     * @param name image name
      * @param imageId an image slug e.g. "debian-8-x64", or an integer e.g. of a backup, such as "12345678"
      * @param sizeId the image size e.g. "512mb" or "1gb"
      * @param regionId the region e.g. "nyc1"
+     * @param username username to login
+     * @param workspacePath path to the workspace
+     * @param sshPort ssh port to be used
      * @param idleTerminationInMinutes how long to wait before destroying a slave
      * @param numExecutors the number of executors that this slave supports
      * @param labelString the label for this slave
+     * @param labellessJobsAllowed if jobs without a label are allowed
+     * @param instanceCap if the number of created instances is capped
      * @param installMonitoring whether expanded monitoring tool agent should be installed
      * @param tags the droplet tags
      * @param userData user data for DigitalOcean to apply when building the slave
@@ -277,7 +283,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 provisioningId,
                 cloudName,
                 droplet.getName(),
-                "Computer running on DigitalOcean with name: " + droplet.getName(),
+                "DigitalOceanComputer running on DigitalOcean with name: " + droplet.getName(),
                 droplet.getId(),
                 privateKey,
                 username,
@@ -286,7 +292,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 numExecutors,
                 idleTerminationInMinutes,
                 labels,
-                new ComputerLauncher(),
+                new DigitalOceanComputerLauncher(),
                 new RetentionStrategy(),
                 Collections.emptyList(),
                 Util.fixNull(initScript)
@@ -391,15 +397,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         }
 
         public FormValidation doCheckSizeId(@RelativePath("..") @QueryParameter String authToken) {
-            return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+            return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
         public FormValidation doCheckImageId(@RelativePath("..") @QueryParameter String authToken) {
-            return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+            return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
         public FormValidation doCheckRegionId(@RelativePath("..") @QueryParameter String authToken) {
-            return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+            return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
         public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {

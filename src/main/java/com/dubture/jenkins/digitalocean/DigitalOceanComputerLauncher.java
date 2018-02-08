@@ -37,6 +37,7 @@ import com.trilead.ssh2.Session;
 import hudson.Util;
 import hudson.model.TaskListener;
 import hudson.remoting.Channel;
+import hudson.slaves.ComputerLauncher;
 import hudson.slaves.SlaveComputer;
 import hudson.util.TimeUnit2;
 import jenkins.model.Jenkins;
@@ -58,7 +59,7 @@ import java.util.logging.Logger;
 import static java.lang.String.format;
 
 /**
- * The {@link ComputerLauncher} is responsible for:
+ * The {@link DigitalOceanComputerLauncher} is responsible for:
  *
  * <ul>
  *   <li>Connecting to a slave via SSH</li>
@@ -67,9 +68,9 @@ import static java.lang.String.format;
  *
  * @author robert.gruendler@dubture.com
  */
-public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
+public class DigitalOceanComputerLauncher extends ComputerLauncher {
 
-    private static final Logger LOGGER = Logger.getLogger(Cloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(DigitalOceanCloud.class.getName());
 
     private static abstract class JavaInstaller {
         protected abstract String getInstallCommand(String javaVersion);
@@ -87,7 +88,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
 
         protected int installJava(Connection conn, PrintStream logger) throws IOException, InterruptedException {
             int result = 1;
-            for (String version : ComputerLauncher.VALID_VERSIONS) {
+            for (String version : DigitalOceanComputerLauncher.VALID_VERSIONS) {
                 result = conn.exec(getInstallCommand(version), logger);
                 if (result == 0) {
                     return result;
@@ -133,13 +134,20 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
     }};
 
     /**
-     * Connects to the given {@link Computer} via SSH and installs Java/Jenkins agent if necessary.
+     * Connects to the given {@link DigitalOceanComputer} via SSH and installs Java/Jenkins agent if necessary.
      */
     @Override
     public void launch(SlaveComputer _computer, TaskListener listener) {
 
-        Computer computer = (Computer)_computer;
         PrintStream logger = listener.getLogger();
+
+        if(!(_computer instanceof DigitalOceanComputer)) {
+            logger.println("Cannot handle slave not instance of digital ocean digitalOceanComputer.");
+            return;
+        }
+
+        DigitalOceanComputer digitalOceanComputer = (DigitalOceanComputer)_computer;
+
 
         Date startDate = new Date();
         logger.println("Start time: " + getUtcDate(startDate));
@@ -148,35 +156,42 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         Connection cleanupConn = null;
         boolean successful = false;
 
+        Slave node = digitalOceanComputer.getNode();
+
+        if(node == null) {
+            logger.println("No real node is available. ABORT");
+            return;
+        }
+
         try {
-            conn = connectToSsh(computer, logger);
+            conn = connectToSsh(digitalOceanComputer, logger);
             cleanupConn = conn;
-            logger.println("Authenticating as " + computer.getRemoteAdmin());
-            if (!conn.authenticateWithPublicKey(computer.getRemoteAdmin(), computer.getNode().getPrivateKey().toCharArray(), "")) {
+            logger.println("Authenticating as " + digitalOceanComputer.getRemoteAdmin());
+            if (!conn.authenticateWithPublicKey(digitalOceanComputer.getRemoteAdmin(), node.getPrivateKey().toCharArray(), "")) {
                 logger.println("Authentication failed");
                 throw new Exception("Authentication failed");
             }
 
             final SCPClient scp = conn.createSCPClient();
 
-            if (!runInitScript(computer, logger, conn, scp)) {
-                LOGGER.severe("Failed to launch: Init script failed to run " + computer.getName());
-                return;
+            if (!runInitScript(digitalOceanComputer, logger, conn, scp)) {
+                LOGGER.severe("Failed to launch: Init script failed to run " + digitalOceanComputer.getName());
+                throw new Exception("Init script failed.");
             }
 
             if (!installJava(logger, conn)) {
-                LOGGER.severe("Failed to launch: java installation failed to run " + computer.getName());
-                return;
+                LOGGER.severe("Failed to launch: java installation failed to run " + digitalOceanComputer.getName());
+                throw new Exception("Installing java failed.");
             }
 
             logger.println("Copying slave.jar");
             scp.put(Jenkins.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar","/tmp");
-            String jvmOpts = Util.fixNull(computer.getNode().getJvmOpts());
+            String jvmOpts = Util.fixNull(node.getJvmOpts());
             String launchString = "java " + jvmOpts + " -jar /tmp/slave.jar";
             logger.println("Launching slave agent: " + launchString);
             final Session sess = conn.openSession();
             sess.execCommand(launchString);
-            computer.setChannel(sess.getStdout(), sess.getStdin(), logger, new Channel.Listener() {
+            digitalOceanComputer.setChannel(sess.getStdout(), sess.getStdin(), logger, new Channel.Listener() {
                 @Override
                 public void onClosed(Channel channel, IOException cause) {
                     sess.close();
@@ -188,7 +203,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, e.getMessage(), e);
             try {
-                Jenkins.getInstance().removeNode(computer.getNode());
+                Jenkins.getInstance().removeNode(node);
             } catch (Exception ee) {
                 ee.printStackTrace(logger);
             }
@@ -203,10 +218,16 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         }
     }
 
-    private boolean runInitScript(final Computer computer, final PrintStream logger, final Connection conn, final SCPClient scp)
+    private boolean runInitScript(final DigitalOceanComputer digitalOceanComputer, final PrintStream logger, final Connection conn, final SCPClient scp)
             throws IOException, InterruptedException {
 
-        String initScript = Util.fixEmptyAndTrim(computer.getNode().getInitScript());
+        Slave node = digitalOceanComputer.getNode();
+
+        if(node == null ) {
+            return false;
+        }
+
+        String initScript = Util.fixEmptyAndTrim(node.getInitScript());
 
         if (initScript == null) {
             return true;
@@ -219,7 +240,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         scp.put(initScript.getBytes("UTF-8"), "init.sh", "/tmp", "0700");
         Session session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(computer, "/tmp/init.sh"));
+        session.execCommand(buildUpCommand(digitalOceanComputer, "/tmp/init.sh"));
 
         session.getStdin().close();    // nothing to write here
         session.getStderr().close();   // we are not supposed to get anything from stderr
@@ -235,7 +256,7 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         // Needs a tty to run sudo.
         session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(computer, "touch ~/.hudson-run-init"));
+        session.execCommand(buildUpCommand(digitalOceanComputer, "touch ~/.hudson-run-init"));
         session.close();
 
         return true;
@@ -262,33 +283,40 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         return true;
     }
 
-    private Connection connectToSsh(Computer computer, PrintStream logger) throws RequestUnsuccessfulException, DigitalOceanException {
+    private Connection connectToSsh(DigitalOceanComputer digitalOceanComputer, PrintStream logger) throws RequestUnsuccessfulException, DigitalOceanException {
 
-        final long timeout = TimeUnit2.MINUTES.toMillis(computer.getCloud().getTimeoutMinutes());
+        final long timeout = TimeUnit2.MINUTES.toMillis(digitalOceanComputer.getCloud().getTimeoutMinutes());
         final long startTime = System.currentTimeMillis();
-        final int sleepTime = computer.getCloud().getConnectionRetryWait();
+        final int sleepTime = digitalOceanComputer.getCloud().getConnectionRetryWait();
 
         long waitTime;
 
         while ((waitTime = System.currentTimeMillis() - startTime) < timeout) {
 
+            DigitalOceanCloud cloud = digitalOceanComputer.getCloud();
+            Slave node = digitalOceanComputer.getNode();
+
+            if(cloud == null || node == null) {
+                logger.println("cloud or node are not available. Waiting for them to come up");
+                sleep(sleepTime);
+                continue;
+            }
+
             // Hack to fetch this each time through the loop to get the latest information.
-            final Droplet droplet = DigitalOcean.getDroplet(
-                    computer.getCloud().getAuthToken(),
-                    computer.getNode().getDropletId());
+            final Droplet droplet = DigitalOcean.getDroplet(cloud.getAuthToken(), node.getDropletId());
 
             if (isDropletStarting(droplet)) {
                 logger.println("Waiting for droplet to enter ACTIVE state. Sleeping " + sleepTime + " seconds.");
             }
             else {
                 try {
-                    final String host = getIpAddress(computer);
+                    final String host = getIpAddress(digitalOceanComputer);
 
                     if (Strings.isNullOrEmpty(host) || "0.0.0.0".equals(host)) {
                         logger.println("No ip address yet, your host is most likely waiting for an ip address.");
                     }
                     else {
-                        int port = computer.getSshPort();
+                        int port = digitalOceanComputer.getSshPort();
 
                         Connection conn = getDropletConnection(host, port, logger);
                         if (conn != null) {
@@ -336,10 +364,10 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         return conn;
     }
 
-    private static String getIpAddress(Computer computer) throws RequestUnsuccessfulException, DigitalOceanException {
-        Droplet instance = computer.updateInstanceDescription();
+    private static String getIpAddress(DigitalOceanComputer digitalOceanComputer) throws RequestUnsuccessfulException, DigitalOceanException {
+        Droplet instance = digitalOceanComputer.updateInstanceDescription();
 
-        final String networkType = computer.getCloud().getUsePrivateNetworking() ? "private" : "public";
+        final String networkType = digitalOceanComputer.getCloud().getUsePrivateNetworking() ? "private" : "public";
 
         for (final Network network : instance.getNetworks().getVersion4Networks()) {
             LOGGER.log(Level.INFO, "network {0} => {1}", new Object[] {network.getIpAddress(), network.getType()});
@@ -361,9 +389,9 @@ public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
         return -1;
     }
 
-    private String buildUpCommand(Computer computer, String command) {
-//        if (!computer.getRemoteAdmin().equals("root")) {
-//            command = computer.getRootCommandPrefix() + " " + command;
+    private String buildUpCommand(DigitalOceanComputer digitalOceanComputer, String command) {
+//        if (!digitalOceanComputer.getRemoteAdmin().equals("root")) {
+//            command = digitalOceanComputer.getRootCommandPrefix() + " " + command;
 //        }
         return command;
     }

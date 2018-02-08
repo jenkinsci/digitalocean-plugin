@@ -47,7 +47,7 @@ import java.util.logging.Logger;
  * The {@link com.dubture.jenkins.digitalocean.Slave} is responsible for
  *
  * <ul>
- *   <li>Creating a DigitalOcean {@link com.dubture.jenkins.digitalocean.Computer}</li>
+ *   <li>Creating a DigitalOcean {@link DigitalOceanComputer}</li>
  *   <li>Destroying the {@link com.myjeeva.digitalocean.pojo.Droplet} if it's not needed anymore.</li>
  * </ul>
  *
@@ -112,20 +112,20 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
     }
 
     /**
-     * Override to create a DigitalOcean {@link com.dubture.jenkins.digitalocean.Computer}
-     * @return a new Computer instance, instantiated with this Slave instance.
+     * Override to create a DigitalOcean {@link DigitalOceanComputer}
+     * @return a new DigitalOceanComputer instance, instantiated with this Slave instance.
      */
     @Override
-    public Computer createComputer() {
-        return new Computer(this);
+    public DigitalOceanComputer createComputer() {
+        return new DigitalOceanComputer(this);
     }
 
     /**
-     * Retrieve a handle to the associated {@link com.dubture.jenkins.digitalocean.Cloud}
-     * @return the Cloud associated with the specified cloudName
+     * Retrieve a handle to the associated {@link DigitalOceanCloud}
+     * @return the DigitalOceanCloud associated with the specified cloudName
      */
-    public Cloud getCloud() {
-        return (Cloud) Jenkins.getInstance().getCloud(cloudName);
+    public DigitalOceanCloud getCloud() {
+        return (DigitalOceanCloud) Jenkins.getInstance().getCloud(cloudName);
     }
 
     /**
