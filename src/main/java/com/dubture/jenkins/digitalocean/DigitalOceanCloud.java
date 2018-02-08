@@ -143,8 +143,8 @@ public class DigitalOceanCloud extends Cloud {
 
         this.authToken = authToken;
         this.privateKey = privateKey;
-        this.sshKeyId = Integer.parseInt(sshKeyId);
-        this.instanceCap = Integer.parseInt(instanceCap);
+        this.sshKeyId = sshKeyId == null ? 0 : Integer.parseInt(sshKeyId);
+        this.instanceCap = instanceCap == null ? 0 : Integer.parseInt(instanceCap);
         this.usePrivateNetworking = usePrivateNetworking;
         this.timeoutMinutes = timeoutMinutes == null || timeoutMinutes.isEmpty() ? 5 : Integer.parseInt(timeoutMinutes);
         this.connectionRetryWait = connectionRetryWait == null || connectionRetryWait.isEmpty() ? 10 : Integer.parseInt(connectionRetryWait);
