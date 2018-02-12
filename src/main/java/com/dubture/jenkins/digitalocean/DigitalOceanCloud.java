@@ -377,7 +377,7 @@ public class DigitalOceanCloud extends Cloud {
         return usePrivateNetworking;
     }
 
-    private static final class ConverterImpl extends XStream2.PassthruConverter<DigitalOceanCloud> {
+    public static final class ConverterImpl extends XStream2.PassthruConverter<DigitalOceanCloud> {
         public ConverterImpl(XStream2 xstream) {
             super(xstream);
         }
