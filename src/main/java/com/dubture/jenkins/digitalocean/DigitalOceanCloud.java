@@ -353,7 +353,7 @@ public class DigitalOceanCloud extends Cloud {
         return sshKeyId;
     }
 
-    private int getInstanceCap() {
+    public int getInstanceCap() {
         return instanceCap;
     }
 
