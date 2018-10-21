@@ -39,7 +39,6 @@ import hudson.model.TaskListener;
 import hudson.remoting.Channel;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.SlaveComputer;
-import hudson.util.TimeUnit2;
 import jenkins.model.Jenkins;
 import org.apache.commons.io.IOUtils;
 
@@ -53,6 +52,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -211,7 +211,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         } finally {
             Date endDate = new Date();
             logger.println("Done setting up at: " + getUtcDate(endDate));
-            logger.println("Done in " + TimeUnit2.MILLISECONDS.toSeconds(endDate.getTime() - startDate.getTime()) + " seconds");
+            logger.println("Done in " + TimeUnit.MILLISECONDS.toSeconds(endDate.getTime() - startDate.getTime()) + " seconds");
             if(cleanupConn != null && !successful) {
                 cleanupConn.close();
             }
@@ -285,7 +285,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
 
     private Connection connectToSsh(DigitalOceanComputer digitalOceanComputer, PrintStream logger) throws RequestUnsuccessfulException, DigitalOceanException {
 
-        final long timeout = TimeUnit2.MINUTES.toMillis(digitalOceanComputer.getCloud().getTimeoutMinutes());
+        final long timeout = TimeUnit.MINUTES.toMillis(digitalOceanComputer.getCloud().getTimeoutMinutes());
         final long startTime = System.currentTimeMillis();
         final int sleepTime = digitalOceanComputer.getCloud().getConnectionRetryWait();
 

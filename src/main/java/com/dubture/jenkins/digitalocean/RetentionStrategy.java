@@ -28,9 +28,9 @@ package com.dubture.jenkins.digitalocean;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import hudson.model.Descriptor;
 import hudson.slaves.CloudSlaveRetentionStrategy;
-import hudson.util.TimeUnit2;
 
 import javax.annotation.Nonnull;
+import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -73,11 +73,11 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanC
         }
 
         if (idleTerminationTime > 0) {
-            return System.currentTimeMillis() - digitalOceanComputer.getIdleStartMilliseconds() > TimeUnit2.MINUTES.toMillis(idleTerminationTime);
+            return System.currentTimeMillis() - digitalOceanComputer.getIdleStartMilliseconds() > TimeUnit.MINUTES.toMillis(idleTerminationTime);
         } else if (idleTerminationTime < 0 && digitalOceanComputer.isIdle()) {
             // DigitalOcean charges for the next hour at 1:30, 2:30, 3:30, etc. up time, so kill the node
             // if it idles and is about to get charged for next hour
-            long uptimeMinutes = TimeUnit2.MILLISECONDS.toMinutes(System.currentTimeMillis() - digitalOceanComputer.getStartTimeMillis());
+            long uptimeMinutes = TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis() - digitalOceanComputer.getStartTimeMillis());
 
             if (uptimeMinutes < 60) {
                 return false;
