@@ -113,6 +113,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     private final String workspacePath;
 
     private final Integer sshPort;
+    
+    private final Boolean setupPrivateNetworking;
 
     private final Integer instanceCap;
 
@@ -156,7 +158,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      */
     @DataBoundConstructor
     public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
-                         Integer sshPort, String idleTerminationInMinutes, String numExecutors, String labelString,
+                         Integer sshPort, Boolean setupPrivateNetworking, String idleTerminationInMinutes, String numExecutors, String labelString,
                          Boolean labellessJobsAllowed, String instanceCap, Boolean installMonitoring, String tags,
                          String userData, String initScript) {
 
@@ -170,7 +172,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.username = username;
         this.workspacePath = workspacePath;
         this.sshPort = sshPort;
-
+        this.setupPrivateNetworking = setupPrivateNetworking;
+        
         this.idleTerminationInMinutes = tryParseInteger(idleTerminationInMinutes, 10);
         this.numExecutors = tryParseInteger(numExecutors, 1);
         this.labelString = labelString;
@@ -246,7 +249,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setRegion(new Region(regionId));
             droplet.setImage(DigitalOcean.newImage(imageId));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
-            droplet.setEnablePrivateNetworking(usePrivateNetworking);
+            droplet.setEnablePrivateNetworking(usePrivateNetworking || setupPrivateNetworking);
             droplet.setInstallMonitoring(installMonitoringAgent);
             droplet.setTags(Arrays.asList(Util.tokenize(Util.fixNull(tags))));
 
@@ -527,6 +530,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public int getSshPort() {
         return sshPort;
     }
+    
+    public boolean isSetupPrivateNetworking() { return setupPrivateNetworking; }
 
     private static int tryParseInteger(final String integerString, final int defaultValue) {
         try {
