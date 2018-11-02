@@ -54,6 +54,10 @@
     <f:entry title="SSH port" field="sshPort">
         <f:textbox default="22" />
     </f:entry>
+    
+    <f:entry title="Setup Private Networking" field="setupPrivateNetworking">
+        <f:checkbox/>
+    </f:entry>
 
     <f:entry title="Labels" field="labelString">
         <f:textbox/>
