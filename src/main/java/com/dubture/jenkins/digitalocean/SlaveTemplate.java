@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nonnull;
 
 import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
@@ -60,10 +61,9 @@ import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.Nonnull;
+import static java.lang.String.format;
 
 import static com.google.common.collect.Lists.newArrayList;
-import static java.lang.String.format;
 
 /**
  * A {@link SlaveTemplate} represents the configuration values for creating a new slave via a DigitalOcean droplet.
@@ -113,7 +113,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     private final String workspacePath;
 
     private final Integer sshPort;
-    
+
     private final Boolean setupPrivateNetworking;
 
     private final Integer instanceCap;
@@ -172,8 +172,12 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.username = username;
         this.workspacePath = workspacePath;
         this.sshPort = sshPort;
-        this.setupPrivateNetworking = setupPrivateNetworking;
-        
+        if (setupPrivateNetworking == null) {
+            LOGGER.log(Level.WARNING, "Private networking configuration not set for Slavetemplate with imageid = {0}", new Object[]{imageId});
+            this.setupPrivateNetworking = false;
+        } else {
+            this.setupPrivateNetworking = setupPrivateNetworking;
+        }
         this.idleTerminationInMinutes = tryParseInteger(idleTerminationInMinutes, 10);
         this.numExecutors = tryParseInteger(numExecutors, 1);
         this.labelString = labelString;
@@ -234,12 +238,18 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         LOGGER.log(Level.INFO, "Provisioning slave...");
 
         try {
-            LOGGER.log(Level.INFO, "Starting to provision digital ocean droplet using image: " + imageId + " region: " + regionId + ", sizeId: " + sizeId);
+            LOGGER.log(Level.INFO, "Starting to provision digital ocean droplet using image: {0}, sizeId = {1}, regionId = {2}",
+                    new Object[]{imageId, sizeId, regionId});
 
             if (isInstanceCapReachedLocal(cloudName) || isInstanceCapReachedRemote(droplets, cloudName)) {
                 String msg = format("instance cap reached for %s in %s", dropletName, cloudName);
                 LOGGER.log(Level.INFO, msg);
                 throw new AssertionError(msg);
+            }
+
+            if (usePrivateNetworking == null) {
+                LOGGER.log(Level.WARNING, "Private networking usage not set for Slavetemplate with imageid = {0}", new Object[]{imageId});
+                usePrivateNetworking = false;
             }
 
             // create a new droplet
@@ -530,7 +540,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public int getSshPort() {
         return sshPort;
     }
-    
+
     public boolean isSetupPrivateNetworking() { return setupPrivateNetworking; }
 
     private static int tryParseInteger(final String integerString, final int defaultValue) {
