@@ -259,8 +259,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setRegion(new Region(regionId));
             droplet.setImage(DigitalOcean.newImage(imageId));
             droplet.setKeys(newArrayList(new Key(sshKeyId)));
-            droplet.setEnablePrivateNetworking(usePrivateNetworking || setupPrivateNetworking);
             droplet.setInstallMonitoring(installMonitoringAgent);
+            droplet.setEnablePrivateNetworking(
+                    (usePrivateNetworking == null ? false : usePrivateNetworking) || (setupPrivateNetworking == null ? false : setupPrivateNetworking)
+            );
             droplet.setTags(Arrays.asList(Util.tokenize(Util.fixNull(tags))));
 
             if (!(userData == null || userData.trim().isEmpty())) {
