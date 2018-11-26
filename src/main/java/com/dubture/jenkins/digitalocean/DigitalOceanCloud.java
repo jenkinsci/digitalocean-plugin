@@ -249,8 +249,8 @@ public class DigitalOceanCloud extends Cloud {
                             }
                             slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
                                     sshKeyId, droplets1, usePrivateNetworking);
+                            Jenkins.getInstance().addNode(slave);
                         }
-                        Jenkins.getInstance().addNode(slave);
                         slave.toComputer().connect(false).get();
                         return slave;
                     })));
