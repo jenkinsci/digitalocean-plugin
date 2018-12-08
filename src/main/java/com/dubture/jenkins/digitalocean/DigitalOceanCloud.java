@@ -249,8 +249,8 @@ public class DigitalOceanCloud extends Cloud {
                             }
                             slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
                                     sshKeyId, droplets1, usePrivateNetworking);
+                            Jenkins.getInstance().addNode(slave);
                         }
-                        Jenkins.getInstance().addNode(slave);
                         slave.toComputer().connect(false).get();
                         return slave;
                     })));
@@ -270,25 +270,17 @@ public class DigitalOceanCloud extends Cloud {
 
     @Override
     public boolean canProvision(Label label) {
-        synchronized (provisionSynchronizor) {
-            try {
-                SlaveTemplate template = getTemplateBelowInstanceCapLocal(label);
-                if (template == null) {
-                    LOGGER.log(Level.INFO, "No slaves could provision for label " + label.getDisplayName() + " because they either didn't support such a label or have reached the instance cap.");
-                    return false;
-                }
-
-                if (isInstanceCapReachedLocal()) {
-                    LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning for label " + label.getDisplayName() + ".");
-                    return false;
-                }
-            } catch (Exception e) {
-                LOGGER.log(Level.WARNING, e.getMessage(), e);
-                return false;
-            }
-
-            return true;
-        }
+        // NB: this must be lock-less, lest it causes deadlocks. This method may get called from Queue locked
+        // call-chains (e.g. Node adding/removing) and since they may not be lock protected they have the potential
+        // of deadlocking on our provisionLock.
+        // Also we'll treat this like a hint. We *may* be able to provision a node, but we *can* provision that type
+        // of label in general. It may later turn out that we can not currently provision though, provision() would
+        // then return an empty list of planned nodes, and from what I can tell jenkins core will eventually retry
+        // provisioning. It's very much unclear if this is indeed better, a lock timeout may proof more effectively.
+        // This also doesn't take into account the actual capacity, as that too gets checked during provision.
+        boolean can = !getTemplates(label).isEmpty();
+        LOGGER.log(Level.INFO, "canProvision " + label + " :: " + can);
+        return can;
     }
 
     private List<SlaveTemplate> getTemplates(Label label) {
