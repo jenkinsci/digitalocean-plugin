@@ -302,8 +302,15 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
                 continue;
             }
 
-            // Hack to fetch this each time through the loop to get the latest information.
-            final Droplet droplet = DigitalOcean.getDroplet(cloud.getAuthToken(), node.getDropletId());
+            final Droplet droplet;
+            try {
+                // Hack to fetch this each time through the loop to get the latest information.
+                droplet = DigitalOcean.getDroplet(cloud.getAuthToken(), node.getDropletId());
+            } catch (Exception e) {
+                logger.println("Failed to get droplet. Retrying");
+                sleep(sleepTime);
+                continue;
+            }
 
             if (isDropletStarting(droplet)) {
                 logger.println("Waiting for droplet to enter ACTIVE state. Sleeping " + sleepTime + " seconds.");
