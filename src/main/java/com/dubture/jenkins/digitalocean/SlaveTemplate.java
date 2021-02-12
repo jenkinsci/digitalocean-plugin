@@ -26,9 +26,6 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import static com.google.common.collect.Lists.newArrayList;
-import static java.lang.String.format;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -245,7 +242,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                     new Object[]{imageId, sizeId, regionId});
 
             if (isInstanceCapReachedLocal(cloudName) || isInstanceCapReachedRemote(droplets, cloudName)) {
-                String msg = format("instance cap reached for %s in %s", dropletName, cloudName);
+                String msg = String.format("instance cap reached for %s in %s", dropletName, cloudName);
                 LOGGER.log(Level.INFO, msg);
                 throw new AssertionError(msg);
             }
@@ -261,7 +258,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
             droplet.setImage(DigitalOcean.newImage(imageId));
-            droplet.setKeys(newArrayList(new Key(sshKeyId)));
+            droplet.setKeys(Arrays.asList(new Key(sshKeyId)));
             droplet.setInstallMonitoring(installMonitoringAgent);
             droplet.setEnablePrivateNetworking(
                     (usePrivateNetworking == null ? false : usePrivateNetworking) || (setupPrivateNetworking == null ? false : setupPrivateNetworking)
@@ -281,7 +278,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            String msg = format("Unexpected error raised during provisioning of %s:%n%s", dropletName, e.getMessage());
+            String msg = String.format("Unexpected error raised during provisioning of %s:%n%s", dropletName, e.getMessage());
             LOGGER.log(Level.WARNING,  msg, e);
             throw new AssertionError(msg);
         }

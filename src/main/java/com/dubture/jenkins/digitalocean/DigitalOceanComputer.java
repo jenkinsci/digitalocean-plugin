@@ -51,7 +51,7 @@ public class DigitalOceanComputer extends AbstractCloudComputer<Slave> implement
 
     private final ProvisioningActivity.Id provisioningId;
 
-    private final String authToken;
+    private final String authTokenCredentialId;
 
     private final Integer dropletId;
 
@@ -59,10 +59,11 @@ public class DigitalOceanComputer extends AbstractCloudComputer<Slave> implement
         super(slave);
         provisioningId = slave.getId();
         dropletId = slave.getDropletId();
-        authToken = slave.getCloud().getAuthToken();
+        authTokenCredentialId = slave.getCloud().getAuthTokenCredentialId();
     }
 
     public Droplet updateInstanceDescription() throws RequestUnsuccessfulException, DigitalOceanException {
+        final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
         DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
         return apiClient.getDropletInfo(dropletId);
     }
@@ -70,6 +71,7 @@ public class DigitalOceanComputer extends AbstractCloudComputer<Slave> implement
     @Override
     protected void onRemoved() {
         super.onRemoved();
+        final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
 
         LOGGER.info("Slave removed, deleting droplet " + dropletId);
         DigitalOcean.tryDestroyDropletAsync(authToken, dropletId);

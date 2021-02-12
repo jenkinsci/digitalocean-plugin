@@ -161,10 +161,34 @@ public class DigitalOceanCloud extends Cloud {
      * @param connectionRetryWait  the time to wait for SSH connections to work
      * @param templates            the templates for this cloud
      */
-    @DataBoundConstructor
+    @Deprecated
     public DigitalOceanCloud(String name,
                              String authToken,
                              String privateKey,
+                             String sshKeyId,
+                             String instanceCap,
+                             Boolean usePrivateNetworking,
+                             String timeoutMinutes,
+                             String connectionRetryWait,
+                             List<? extends SlaveTemplate> templates) {
+        this(name, sshKeyId, instanceCap, usePrivateNetworking, timeoutMinutes, connectionRetryWait, templates);
+    }
+
+    /**
+     * Constructor parameters are injected via jelly in the jenkins global configuration
+     *
+     * @param name                 A name associated with this cloud configuration
+     * @param authToken            A DigitalOcean V2 API authentication token, generated on their website.
+     * @param privateKey           An RSA private key in text format
+     * @param sshKeyId             An identifier (name) for an SSH key known to DigitalOcean
+     * @param instanceCap          the maximum number of instances that can be started
+     * @param usePrivateNetworking Whether to use private networking to connect to the cloud.
+     * @param timeoutMinutes       the timeout in minutes.
+     * @param connectionRetryWait  the time to wait for SSH connections to work
+     * @param templates            the templates for this cloud
+     */
+    @DataBoundConstructor
+    public DigitalOceanCloud(String name,
                              String sshKeyId,
                              String instanceCap,
                              Boolean usePrivateNetworking,
@@ -197,7 +221,7 @@ public class DigitalOceanCloud extends Cloud {
       this.privateKeyCredentialId = credentialId;
     }
 
-    public String getPrivateKeyCredentialId(String credentialId) {
+    public String getPrivateKeyCredentialId() {
       return this.privateKeyCredentialId;
     }
 
@@ -276,11 +300,12 @@ public class DigitalOceanCloud extends Cloud {
     @Override
     public Collection<NodeProvisioner.PlannedNode> provision(final Label label, int excessWorkload) {
         synchronized (provisionSynchronizor) {
+            final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
+            final String privateKey = DigitalOceanCloud.getPrivateKeyFromCredentialId(privateKeyCredentialId);
             List<NodeProvisioner.PlannedNode> provisioningNodes = new ArrayList<>();
             try {
                 while (excessWorkload > 0) {
-
-                    List<Droplet> droplets = DigitalOcean.getDroplets(getAuthToken());
+                    List<Droplet> droplets = DigitalOcean.getDroplets(authToken);
 
                     if (isInstanceCapReachedLocal() || isInstanceCapReachedRemote(droplets)) {
                         LOGGER.log(Level.INFO, "Instance cap reached, not provisioning.");
@@ -298,14 +323,14 @@ public class DigitalOceanCloud extends Cloud {
                     provisioningNodes.add(new TrackedPlannedNode(provisioningId, template.getNumExecutors(), Computer.threadPoolForRemoting.submit(() -> {
                         Slave slave;
                         synchronized (provisionSynchronizor) {
-                            List<Droplet> droplets1 = DigitalOcean.getDroplets(getAuthToken());
+                            List<Droplet> droplets1 = DigitalOcean.getDroplets(authToken);
 
                             if (isInstanceCapReachedLocal() || isInstanceCapReachedRemote(droplets1)) {
                                 LOGGER.log(Level.INFO, "Instance cap reached, not provisioning.");
                                 return null;
                             }
 
-                            slave = template.provision(provisioningId, dropletName, name, getAuthToken(), getPrivateKey(),
+                            slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
                                     sshKeyId, droplets1, usePrivateNetworking);
                             Jenkins.getInstance().addNode(slave);
                         }
@@ -404,10 +429,6 @@ public class DigitalOceanCloud extends Cloud {
         return cred.getSecret().getPlainText();
     }
 
-    public String getAuthToken() {
-        return getAuthTokenFromCredentialId(authTokenCredentialId);
-    }
-
     public static String getPrivateKeyFromCredentialId(String credentialId) {
         if (StringUtils.isBlank(credentialId)) {
             return null;
@@ -422,10 +443,6 @@ public class DigitalOceanCloud extends Cloud {
     }
 
 
-    public String getPrivateKey() {
-        return getPrivateKeyFromCredentialId(privateKeyCredentialId);
-    }
-
     public int getSshKeyId() {
         return sshKeyId;
     }
@@ -435,7 +452,8 @@ public class DigitalOceanCloud extends Cloud {
     }
 
     public DigitalOceanClient getApiClient() {
-        return new DigitalOceanClient(getAuthToken());
+        final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
+        return new DigitalOceanClient(authToken);
     }
 
     public List<SlaveTemplate> getTemplates() {
@@ -641,7 +659,7 @@ public class DigitalOceanCloud extends Cloud {
 
         public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authTokenCredentialId) throws RequestUnsuccessfulException, DigitalOceanException {
             ListBoxModel model = new ListBoxModel();
-            if (authTokenCredentialId.isEmpty()) {
+            if (Strings.isNullOrEmpty(authTokenCredentialId)) {
                 // Do not even attempt to list the keys if we know the authToken isn't going to work.
                 // It only produces useless errors.
                 return model;
