@@ -10,7 +10,7 @@
     <version>1.1.2-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>DigitalOcean plugin</name>
-    <url>https://wiki.jenkins-ci.org/display/JENKINS/DigitalOcean+Plugin</url>
+    <url>https://github.com/jenkinsci/digitalocean-plugin</url>
     <properties>
         <java.level>8</java.level>
     </properties>
