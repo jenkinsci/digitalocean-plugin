@@ -26,6 +26,9 @@
 
 package com.dubture.jenkins.digitalocean;
 
+import static com.google.common.collect.Lists.newArrayList;
+import static java.lang.String.format;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,6 +38,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import javax.annotation.Nonnull;
 
 import com.google.common.base.Strings;
@@ -46,6 +50,12 @@ import com.myjeeva.digitalocean.pojo.Image;
 import com.myjeeva.digitalocean.pojo.Key;
 import com.myjeeva.digitalocean.pojo.Region;
 import com.myjeeva.digitalocean.pojo.Size;
+
+import org.apache.commons.lang3.StringUtils;
+import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+
 import hudson.Extension;
 import hudson.RelativePath;
 import hudson.Util;
@@ -57,13 +67,6 @@ import hudson.model.labels.LabelAtom;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
-import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
-
-import static java.lang.String.format;
-
-import static com.google.common.collect.Lists.newArrayList;
 
 /**
  * A {@link SlaveTemplate} represents the configuration values for creating a new slave via a DigitalOcean droplet.
@@ -411,22 +414,29 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return doCheckNonNegativeNumber(instanceCap);
         }
 
-        public FormValidation doCheckSizeId(@RelativePath("..") @QueryParameter String authToken) {
+        public FormValidation doCheckSizeId(@RelativePath("..") @QueryParameter String authTokenCredentialId) {
+            String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
-        public FormValidation doCheckImageId(@RelativePath("..") @QueryParameter String authToken) {
+        public FormValidation doCheckImageId(@RelativePath("..") @QueryParameter String authTokenCredentialId) {
+            String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
-        public FormValidation doCheckRegionId(@RelativePath("..") @QueryParameter String authToken) {
+        public FormValidation doCheckRegionId(@RelativePath("..") @QueryParameter String authTokenCredentialId) {
+            String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
-        public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
+        public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId) throws Exception {
+            ListBoxModel model = new ListBoxModel();
+            String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
+            if (StringUtils.isBlank(authToken)) {
+              return model;
+            }
 
             List<Size> availableSizes = DigitalOcean.getAvailableSizes(authToken);
-            ListBoxModel model = new ListBoxModel();
 
             for (Size size : availableSizes) {
                 model.add(DigitalOcean.buildSizeLabel(size), size.getSlug());
@@ -435,10 +445,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return model;
         }
 
-        public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
+        public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId) throws Exception {
 
-            SortedMap<String, Image> availableImages = DigitalOcean.getAvailableImages(authToken);
             ListBoxModel model = new ListBoxModel();
+            String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
+            if (StringUtils.isBlank(authToken)) {
+              return model;
+            }
+
+            SortedMap<String, Image> availableImages = DigitalOcean.getAvailableImages(DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId));
 
             for (Map.Entry<String, Image> entry : availableImages.entrySet()) {
                 final Image image = entry.getValue();
@@ -453,10 +468,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return model;
         }
 
-        public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
-
-            List<Region> availableSizes = DigitalOcean.getAvailableRegions(authToken);
+        public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId) throws Exception {
             ListBoxModel model = new ListBoxModel();
+            String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
+            if (StringUtils.isBlank(authToken)) {
+              return model;
+            }
+
+            List<Region> availableSizes = DigitalOcean.getAvailableRegions(DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId));
 
             for (Region region : availableSizes) {
                 model.add(region.getName(), region.getSlug());
