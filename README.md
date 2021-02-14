@@ -1,3 +1,5 @@
+# Jenkins Digital Ocean Plugin
+
 Allow Jenkins to start agents on [DigitalOcean](http://digitalocean.com/) droplets on demand and destroy them as they get unused.
 
 # Configure plugin via Groovy script
