@@ -2,7 +2,7 @@
 
 Allow Jenkins to start agents on [DigitalOcean](http://digitalocean.com/) droplets on demand and destroy them as they get unused.
 
-# Configure plugin via Groovy script
+## Configure plugin via Groovy script
 
 Either automatically upon [Jenkins post-initialization](https://www.jenkins.io/doc/book/managing/groovy-hook-scripts/) or
 through [Jenkins script console](https://www.jenkins.io/doc/book/managing/script-console/), example:
