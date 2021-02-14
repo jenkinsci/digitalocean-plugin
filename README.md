@@ -5,7 +5,7 @@ Allow Jenkins to start agents on [DigitalOcean](http://digitalocean.com/) drople
 Either automatically upon [Jenkins post-initialization](https://www.jenkins.io/doc/book/managing/groovy-hook-scripts/) or
 through [Jenkins script console](https://www.jenkins.io/doc/book/managing/script-console/), example:
 
-```
+```groovy
 import com.dubture.jenkins.digitalocean.DigitalOceanCloud
 import com.dubture.jenkins.digitalocean.SlaveTemplate
 import jenkins.model.Jenkins
