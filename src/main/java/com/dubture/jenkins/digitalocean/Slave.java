@@ -147,7 +147,8 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
      */
     @Override
     protected void _terminate(TaskListener listener) throws IOException, InterruptedException {
-        DigitalOcean.tryDestroyDropletAsync(getCloud().getAuthToken(), dropletId);
+        final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(getCloud().getAuthTokenCredentialId());
+        DigitalOcean.tryDestroyDropletAsync(authToken, dropletId);
     }
 
     @Override

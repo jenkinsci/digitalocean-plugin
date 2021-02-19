@@ -32,16 +32,16 @@
         <f:textbox/>
     </f:entry>
 
-    <f:entry title="Auth token" field="authToken">
-        <f:password />
+    <f:entry title="${%Auth token}" field="authTokenCredentialId">
+        <f:select />
     </f:entry>
 
     <f:entry title="SSH public key" field="sshKeyId">
         <f:select />
     </f:entry>
 
-    <f:entry title="SSH private key" field="privateKey">
-        <f:textarea/>
+    <f:entry title="${%SSH private key}" field="privateKeyCredentialId">
+        <f:select />
     </f:entry>
 
     <f:entry title="Instance cap" field="instanceCap">

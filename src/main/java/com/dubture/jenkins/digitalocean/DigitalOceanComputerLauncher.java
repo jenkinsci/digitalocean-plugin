@@ -184,11 +184,11 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
                 throw new Exception("Installing java failed.");
             }
 
-            logger.println("Copying slave.jar");
-            scp.put(Jenkins.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar","/tmp");
+            logger.println("Copying agent.jar");
+            scp.put(Jenkins.getInstance().getJnlpJars("agent.jar").readFully(), "agent.jar","/tmp");
             String jvmOpts = Util.fixNull(node.getJvmOpts());
-            String launchString = "java " + jvmOpts + " -jar /tmp/slave.jar";
-            logger.println("Launching slave agent: " + launchString);
+            String launchString = "java " + jvmOpts + " -jar /tmp/agent.jar";
+            logger.println("Launching agent agent: " + launchString);
             final Session sess = conn.openSession();
             sess.execCommand(launchString);
             digitalOceanComputer.setChannel(sess.getStdout(), sess.getStdin(), logger, new Channel.Listener() {
@@ -304,8 +304,9 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
 
             final Droplet droplet;
             try {
+                final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(cloud.getAuthTokenCredentialId());
                 // Hack to fetch this each time through the loop to get the latest information.
-                droplet = DigitalOcean.getDroplet(cloud.getAuthToken(), node.getDropletId());
+                droplet = DigitalOcean.getDroplet(authToken, node.getDropletId());
             } catch (Exception e) {
                 logger.println("Failed to get droplet. Retrying");
                 sleep(sleepTime);

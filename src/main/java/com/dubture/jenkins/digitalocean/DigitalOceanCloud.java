@@ -33,9 +33,24 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.annotation.CheckForNull;
+
+import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
+import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey;
+import com.cloudbees.plugins.credentials.Credentials;
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.domains.Domain;
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
@@ -43,21 +58,30 @@ import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
 import com.myjeeva.digitalocean.pojo.Key;
 import com.thoughtworks.xstream.converters.UnmarshallingContext;
+
+import org.apache.commons.lang3.StringUtils;
+import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
+import org.jenkinsci.plugins.cloudstats.TrackedPlannedNode;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
+
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.Label;
 import hudson.model.Node;
+import hudson.security.ACL;
 import hudson.slaves.Cloud;
 import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.util.Secret;
 import hudson.util.XStream2;
 import jenkins.model.Jenkins;
-import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
-import org.jenkinsci.plugins.cloudstats.TrackedPlannedNode;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
 
 /**
  * The {@link DigitalOceanCloud} contains the main configuration values for running
@@ -72,11 +96,16 @@ import org.kohsuke.stapler.QueryParameter;
  */
 public class DigitalOceanCloud extends Cloud {
     /**
+     * @See authTokenCredentialId
+     */
+    @Deprecated
+    private transient String authToken;
+    /**
      * The DigitalOcean API auth token
      *
      * @see "https://developers.digitalocean.com/documentation/v2/#authentication"
      */
-    private final String authToken;
+    private String authTokenCredentialId;
 
     /**
      * The SSH key to be added to the new droplet.
@@ -84,9 +113,14 @@ public class DigitalOceanCloud extends Cloud {
     private final Integer sshKeyId;
 
     /**
+     * @See privateKeyCredentialId
+     */
+    @Deprecated
+    private transient String privateKey;
+    /**
      * The SSH private key associated with the selected SSH key
      */
-    private final String privateKey;
+    private String privateKeyCredentialId;
 
     private final Integer instanceCap;
 
@@ -127,10 +161,34 @@ public class DigitalOceanCloud extends Cloud {
      * @param connectionRetryWait  the time to wait for SSH connections to work
      * @param templates            the templates for this cloud
      */
-    @DataBoundConstructor
+    @Deprecated
     public DigitalOceanCloud(String name,
                              String authToken,
                              String privateKey,
+                             String sshKeyId,
+                             String instanceCap,
+                             Boolean usePrivateNetworking,
+                             String timeoutMinutes,
+                             String connectionRetryWait,
+                             List<? extends SlaveTemplate> templates) {
+        this(name, sshKeyId, instanceCap, usePrivateNetworking, timeoutMinutes, connectionRetryWait, templates);
+    }
+
+    /**
+     * Constructor parameters are injected via jelly in the jenkins global configuration
+     *
+     * @param name                 A name associated with this cloud configuration
+     * @param authToken            A DigitalOcean V2 API authentication token, generated on their website.
+     * @param privateKey           An RSA private key in text format
+     * @param sshKeyId             An identifier (name) for an SSH key known to DigitalOcean
+     * @param instanceCap          the maximum number of instances that can be started
+     * @param usePrivateNetworking Whether to use private networking to connect to the cloud.
+     * @param timeoutMinutes       the timeout in minutes.
+     * @param connectionRetryWait  the time to wait for SSH connections to work
+     * @param templates            the templates for this cloud
+     */
+    @DataBoundConstructor
+    public DigitalOceanCloud(String name,
                              String sshKeyId,
                              String instanceCap,
                              Boolean usePrivateNetworking,
@@ -156,6 +214,29 @@ public class DigitalOceanCloud extends Cloud {
         }
 
         LOGGER.info("Creating DigitalOcean cloud with " + this.templates.size() + " templates");
+    }
+
+    @DataBoundSetter
+    public void setPrivateKeyCredentialId(String credentialId) {
+      this.privateKeyCredentialId = credentialId;
+    }
+
+    public String getPrivateKeyCredentialId() {
+      return this.privateKeyCredentialId;
+    }
+
+    @DataBoundSetter
+    public void setAuthTokenCredentialId(String credentialId) {
+      this.authTokenCredentialId = credentialId;
+    }
+
+    public String getAuthTokenCredentialId() {
+      return this.authTokenCredentialId;
+    }
+
+    @Override
+    public String getDisplayName() {
+        return this.name;
     }
 
     private boolean isInstanceCapReachedLocal() {
@@ -219,10 +300,11 @@ public class DigitalOceanCloud extends Cloud {
     @Override
     public Collection<NodeProvisioner.PlannedNode> provision(final Label label, int excessWorkload) {
         synchronized (provisionSynchronizor) {
+            final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
+            final String privateKey = DigitalOceanCloud.getPrivateKeyFromCredentialId(privateKeyCredentialId);
             List<NodeProvisioner.PlannedNode> provisioningNodes = new ArrayList<>();
             try {
                 while (excessWorkload > 0) {
-
                     List<Droplet> droplets = DigitalOcean.getDroplets(authToken);
 
                     if (isInstanceCapReachedLocal() || isInstanceCapReachedRemote(droplets)) {
@@ -247,6 +329,7 @@ public class DigitalOceanCloud extends Cloud {
                                 LOGGER.log(Level.INFO, "Instance cap reached, not provisioning.");
                                 return null;
                             }
+
                             slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
                                     sshKeyId, droplets1, usePrivateNetworking);
                             Jenkins.getInstance().addNode(slave);
@@ -333,13 +416,32 @@ public class DigitalOceanCloud extends Cloud {
         return name;
     }
 
-    public String getAuthToken() {
-        return authToken;
+    public static String getAuthTokenFromCredentialId(String credentialId) {
+        if (StringUtils.isBlank(credentialId)) {
+            return null;
+        }
+        StringCredentials cred = (StringCredentials) CredentialsMatchers.firstOrNull(
+                CredentialsProvider.lookupCredentials(StringCredentials.class, Jenkins.get(), ACL.SYSTEM, Collections.emptyList()),
+                CredentialsMatchers.withId(credentialId));
+        if (cred == null) {
+          return null;
+        }
+        return cred.getSecret().getPlainText();
     }
 
-    public String getPrivateKey() {
-        return privateKey;
+    public static String getPrivateKeyFromCredentialId(String credentialId) {
+        if (StringUtils.isBlank(credentialId)) {
+            return null;
+        }
+        SSHUserPrivateKey cred = (SSHUserPrivateKey) CredentialsMatchers.firstOrNull(
+                CredentialsProvider.lookupCredentials(SSHUserPrivateKey.class, Jenkins.get(), ACL.SYSTEM, Collections.emptyList()),
+                CredentialsMatchers.withId(credentialId));
+        if (cred == null) {
+          return null;
+        }
+        return cred.getPrivateKeys().stream().findFirst().get();
     }
+
 
     public int getSshKeyId() {
         return sshKeyId;
@@ -350,6 +452,7 @@ public class DigitalOceanCloud extends Cloud {
     }
 
     public DigitalOceanClient getApiClient() {
+        final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
         return new DigitalOceanClient(authToken);
     }
 
@@ -392,6 +495,87 @@ public class DigitalOceanCloud extends Cloud {
         }
     }
 
+    // borrowed from ec2-plugin
+    private void migratePrivateSshKeyToCredential(String privateKey){
+        // GET matching private key credential from Credential API if exists
+        Optional<SSHUserPrivateKey> keyCredential = SystemCredentialsProvider.getInstance().getCredentials()
+                .stream()
+                .filter((cred) -> cred instanceof SSHUserPrivateKey)
+                .filter((cred) -> ((SSHUserPrivateKey)cred).getPrivateKey().trim().equals(privateKey.trim()))
+                .map(cred -> (SSHUserPrivateKey)cred)
+                .findFirst();
+
+        if (keyCredential.isPresent()){
+            // SET this.sshKeysCredentialsId with the found credential
+            privateKeyCredentialId = keyCredential.get().getId();
+            return;
+        }
+
+        // CREATE new credential
+        String credsId = UUID.randomUUID().toString();
+
+        SSHUserPrivateKey sshKeyCredentials = new BasicSSHUserPrivateKey(CredentialsScope.SYSTEM, credsId, "key",
+                new BasicSSHUserPrivateKey.PrivateKeySource() {
+                    @NonNull
+                    @Override
+                    public List<String> getPrivateKeys() {
+                        return Collections.singletonList(privateKey.trim());
+                    }
+                }, "", "DigitalOcean Cloud Private Key - " + getDisplayName());
+
+        addNewGlobalCredential(sshKeyCredentials);
+
+        privateKeyCredentialId = credsId;
+    }
+
+    protected Object readResolve() {
+        if (this.privateKey != null ){
+            migratePrivateSshKeyToCredential(this.privateKey);
+        }
+        this.privateKey = null; // This enforces it not to be persisted and that CasC will never output privateKey on export
+
+        if (this.authToken != null) {
+            SystemCredentialsProvider systemCredentialsProvider = SystemCredentialsProvider.getInstance();
+
+            // ITERATE ON EXISTING CREDS AND DON'T CREATE IF EXIST
+            for (Credentials credentials: systemCredentialsProvider.getCredentials()) {
+                if (credentials instanceof StringCredentials) {
+                    StringCredentials doCreds = (StringCredentials) credentials;
+                    if (this.authToken.equals(doCreds.getSecret().toString())) {
+                        this.authTokenCredentialId = doCreds.getId();
+                        this.authToken = null;
+                        return this;
+                    }
+                }
+            }
+
+            // CREATE
+            String credsId = UUID.randomUUID().toString();
+            addNewGlobalCredential(new StringCredentialsImpl(CredentialsScope.SYSTEM, credsId, "EC2 Cloud - " + getDisplayName(), Secret.fromString(this.authToken)));
+            this.authTokenCredentialId = credsId;
+            this.authToken = null;
+
+
+            // PROBLEM, GLOBAL STORE NOT FOUND
+            LOGGER.log(Level.WARNING, "DigitalOcean Plugin could not migrate credentials to the Jenkins Global Credentials Store, DigitalOcean Plugin for cloud {0} must be manually reconfigured", getDisplayName());
+        }
+
+        return this;
+    }
+
+    private void addNewGlobalCredential(Credentials credentials){
+        for (CredentialsStore credentialsStore: CredentialsProvider.lookupStores(Jenkins.get())) {
+            if (credentialsStore instanceof  SystemCredentialsProvider.StoreImpl) {
+                try {
+                    credentialsStore.addCredentials(Domain.global(), credentials);
+                } catch (IOException e) {
+                    LOGGER.log(Level.WARNING, "Exception converting legacy configuration to the new credentials API", e);
+                }
+            }
+
+        }
+    }
+
     @Extension
     public static final class DescriptorImpl extends Descriptor<hudson.slaves.Cloud> {
 
@@ -403,9 +587,9 @@ public class DigitalOceanCloud extends Cloud {
             return "Digital Ocean";
         }
 
-        public FormValidation doTestConnection(@QueryParameter String authToken) {
+        public FormValidation doTestConnection(@QueryParameter String authTokenCredentialId) {
             try {
-                DigitalOceanClient client = new DigitalOceanClient(authToken);
+                DigitalOceanClient client = new DigitalOceanClient(getAuthTokenFromCredentialId(authTokenCredentialId));
                 client.getAvailableDroplets(1, 10);
                 return FormValidation.ok("Digital Ocean API request succeeded.");
             } catch (Exception e) {
@@ -449,8 +633,8 @@ public class DigitalOceanCloud extends Cloud {
             return FormValidation.ok();
         }
 
-        public FormValidation doCheckSshKeyId(@QueryParameter String authToken) {
-            return doCheckAuthToken(authToken);
+        public FormValidation doCheckSshKeyId(@QueryParameter String authTokenCredentialId) {
+            return doCheckAuthToken(getAuthTokenFromCredentialId(authTokenCredentialId));
         }
 
         public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {
@@ -473,20 +657,44 @@ public class DigitalOceanCloud extends Cloud {
             }
         }
 
-        public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
+        public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authTokenCredentialId) throws RequestUnsuccessfulException, DigitalOceanException {
             ListBoxModel model = new ListBoxModel();
-            if (authToken.isEmpty()) {
+            if (Strings.isNullOrEmpty(authTokenCredentialId)) {
                 // Do not even attempt to list the keys if we know the authToken isn't going to work.
                 // It only produces useless errors.
                 return model;
             }
 
-            List<Key> availableSizes = DigitalOcean.getAvailableKeys(authToken);
+            List<Key> availableSizes = DigitalOcean.getAvailableKeys(getAuthTokenFromCredentialId(authTokenCredentialId));
             for (Key key : availableSizes) {
                 model.add(key.getName() + " (" + key.getFingerprint() + ")", key.getId().toString());
             }
 
             return model;
+        }
+
+        public ListBoxModel doFillPrivateKeyCredentialIdItems(@QueryParameter String credentialsId) {
+            StandardListBoxModel result = new StandardListBoxModel();
+            if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                return result.includeCurrentValue(credentialsId);
+            }
+            return result
+                .includeEmptyValue()
+                .includeMatchingAs(Jenkins.getAuthentication(), Jenkins.get(), SSHUserPrivateKey.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
+                .includeMatchingAs(ACL.SYSTEM, Jenkins.get(), SSHUserPrivateKey.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
+                .includeCurrentValue(credentialsId);
+        }
+
+        public ListBoxModel doFillAuthTokenCredentialIdItems(@QueryParameter String credentialsId) {
+            StandardListBoxModel result = new StandardListBoxModel();
+            if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                return result.includeCurrentValue(credentialsId);
+            }
+            return result
+                .includeEmptyValue()
+                .includeMatchingAs(Jenkins.getAuthentication(), Jenkins.get(), StringCredentials.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
+                .includeMatchingAs(ACL.SYSTEM, Jenkins.get(), StringCredentials.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
+                .includeCurrentValue(credentialsId);
         }
     }
 }
