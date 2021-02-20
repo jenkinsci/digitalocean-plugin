@@ -24,6 +24,11 @@
 
     <developers>
         <developer>
+            <id>halkeye</id>
+            <name>Gavin Mogan</name>
+            <email>jenkins@gavinmogan.com</email>
+        </developer>
+        <developer>
             <id>pulse00</id>
             <name>Robert Gruendler</name>
             <email>robert.gruendler@dubture.com</email>
