@@ -198,9 +198,6 @@ public class DigitalOceanCloud extends Cloud {
         super(name);
 
         LOGGER.log(Level.INFO, "Constructing new DigitalOceanCloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
-
-        this.authToken = authToken;
-        this.privateKey = privateKey;
         this.sshKeyId = sshKeyId == null ? 0 : Integer.parseInt(sshKeyId);
         this.instanceCap = instanceCap == null ? 0 : Integer.parseInt(instanceCap);
         this.usePrivateNetworking = usePrivateNetworking;

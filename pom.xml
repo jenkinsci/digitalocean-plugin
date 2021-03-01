@@ -14,9 +14,6 @@
 
     <name>DigitalOcean plugin</name>
     <url>https://github.com/jenkinsci/digitalocean-plugin</url>
-    <properties>
-        <java.level>8</java.level>
-    </properties>
     <licenses>
         <license>
             <name>The MIT License</name>
