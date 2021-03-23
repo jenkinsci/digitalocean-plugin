@@ -178,8 +178,6 @@ public class DigitalOceanCloud extends Cloud {
      * Constructor parameters are injected via jelly in the jenkins global configuration
      *
      * @param name                 A name associated with this cloud configuration
-     * @param authToken            A DigitalOcean V2 API authentication token, generated on their website.
-     * @param privateKey           An RSA private key in text format
      * @param sshKeyId             An identifier (name) for an SSH key known to DigitalOcean
      * @param instanceCap          the maximum number of instances that can be started
      * @param usePrivateNetworking Whether to use private networking to connect to the cloud.
