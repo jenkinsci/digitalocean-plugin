@@ -102,7 +102,7 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
         @Nonnull
         @Override
         public String getDisplayName() {
-            return "DigitalOcean Slave";
+            return "DigitalOcean Agent";
         }
 
         @Override
