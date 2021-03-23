@@ -319,7 +319,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         @Nonnull
         @Override
         public String getDisplayName() {
-            return "Digital Ocean Slave Template";
+            return "DigitalOcean Agent Template";
         }
 
         public FormValidation doCheckName(@QueryParameter String name) {
