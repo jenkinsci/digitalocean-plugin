@@ -44,15 +44,16 @@
         </developer>
     </developers>
     <scm>
-        <connection>scm:git:ssh://github.com/jenkinsci/digitalocean-plugin.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/jenkinsci/digitalocean-plugin.git</developerConnection>
-        <url>https://github.com/jenkinsci/digitalocean-plugin</url>
-        <tag>HEAD</tag>
+        <connection>scm:git:ssh://github.com/${gitHubRepo}.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/${gitHubRepo}.git</developerConnection>
+        <url>https://github.com/${gitHubRepo}</url>
+        <tag>${scmTag}</tag>
     </scm>
 
     <properties>
         <revision>1.1.2</revision>
         <changelist>-SNAPSHOT</changelist>
+        <gitHubRepo>jenkinsci/digitalocean-plugin</gitHubRepo>
         <jenkins.version>2.235.5</jenkins.version>
         <java.level>8</java.level>
     </properties>
