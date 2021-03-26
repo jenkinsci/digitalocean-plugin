@@ -1,6 +1,14 @@
 # Jenkins Digital Ocean Plugin
 
-Allow Jenkins to start agents on [DigitalOcean](http://digitalocean.com/) droplets on demand and destroy them as they get unused.
+Allow Jenkins to start agents on [DigitalOcean](https://digitalocean.com/) droplets on demand and destroy them as they get unused.
+
+Our friends at [Digital Ocean](https://digitalocean.com/) have provided an awesome promo code if you are new to Digital Ocean. Please use `DOJENKINS100` to get $100 credit to use
+over your first 60 days.
+
+## Known Issues
+
+As of 2021-03-05 - If your using Freestyle Jobs and using something older than 2.277.2 (LTS) or 2.285 (Weekly) you will likely have your build crash the first time it connects to a given droplet. Its
+been fixed in newer version.
 
 ## Configure plugin via Groovy script
 
