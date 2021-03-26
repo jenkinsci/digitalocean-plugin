@@ -2,8 +2,7 @@
 
 Allow Jenkins to start agents on [DigitalOcean](https://digitalocean.com/) droplets on demand and destroy them as they get unused.
 
-Our friends at [Digital Ocean](https://digitalocean.com/) have provided an awesome promo code if you are new to Digital Ocean. Please use `DOJENKINS100` to get $100 credit to use
-over your first 60 days.
+Our friends at [Digital Ocean](https://digitalocean.com/) have provided an awesome promo code if you are new to Digital Ocean. After signing up for DigitalOcean, use `DOJENKINS100` to get $100 credit to use over your first 60 days. Offer only valid for new accounts.
 
 ## Known Issues
 
