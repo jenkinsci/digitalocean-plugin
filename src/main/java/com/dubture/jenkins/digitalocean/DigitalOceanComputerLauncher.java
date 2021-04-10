@@ -179,13 +179,18 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
                 throw new Exception("Init script failed.");
             }
 
+            if (!waitForCloudInit(logger, conn)) {
+                LOGGER.severe("Failed to launch: Init script waiting failed " + digitalOceanComputer.getName());
+                throw new Exception("Init script waiting failed.");
+            }
+
             if (!installJava(logger, conn)) {
                 LOGGER.severe("Failed to launch: java installation failed to run " + digitalOceanComputer.getName());
                 throw new Exception("Installing java failed.");
             }
 
             logger.println("Copying agent.jar");
-            scp.put(Jenkins.getInstance().getJnlpJars("agent.jar").readFully(), "agent.jar","/tmp");
+            scp.put(Jenkins.get().getJnlpJars("agent.jar").readFully(), "agent.jar","/tmp");
             String jvmOpts = Util.fixNull(node.getJvmOpts());
             String launchString = "java " + jvmOpts + " -jar /tmp/agent.jar";
             logger.println("Launching agent agent: " + launchString);
@@ -259,6 +264,13 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         session.execCommand(buildUpCommand(digitalOceanComputer, "touch ~/.hudson-run-init"));
         session.close();
 
+        return true;
+    }
+
+    private boolean waitForCloudInit(final PrintStream logger, final Connection conn) throws IOException, InterruptedException {
+        logger.println("waiting for cloud init to finish");
+        conn.exec("while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done", logger);
+        logger.println("cloud init is done");
         return true;
     }
 
