@@ -1,0 +1,27 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <j:if test="${it.hasPermission(it.PROVISION)}">
+    <tr>
+      <td />
+      <td colspan="${monitors.size()+1}">
+        <f:form action="${rootURL}/cloud/${it.name}/provision" method="post" name="provision">
+          <input type="submit" class="ec2-provision-button" value="${%Provision via} ${it.displayName}" />
+          <select name="template">
+            <j:forEach var="t" items="${it.templates}">
+              <option value="${t.description}">${t.displayName}</option>
+            </j:forEach>
+          </select>
+          <st:once>
+            <script>
+              Behaviour.register({
+                ".ec2-provision-button" : function (e) {
+                  new YAHOO.widget.Button(e, { type: "menu", menu: e.nextSibling });
+                }
+              });
+            </script>
+          </st:once>
+        </f:form>
+      </td>
+    </tr>
+  </j:if>
+</j:jelly>

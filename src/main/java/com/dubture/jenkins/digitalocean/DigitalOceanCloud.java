@@ -35,10 +35,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.annotation.CheckForNull;
+import javax.servlet.ServletException;
 
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey;
@@ -66,7 +68,10 @@ import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.HttpResponse;
+import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.interceptor.RequirePOST;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -82,6 +87,9 @@ import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import hudson.util.XStream2;
 import jenkins.model.Jenkins;
+
+import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
+import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 
 /**
  * The {@link DigitalOceanCloud} contains the main configuration values for running
@@ -361,6 +369,19 @@ public class DigitalOceanCloud extends Cloud {
         return can;
     }
 
+    private SlaveTemplate getTemplate(String name) {
+        if (Strings.isNullOrEmpty(name)) {
+            return null;
+        }
+
+        for (SlaveTemplate t : templates) {
+            if (name.equals(t.getName())) {
+                return t;
+            }
+        }
+        return null;
+    }
+
     private List<SlaveTemplate> getTemplates(Label label) {
         List<SlaveTemplate> matchingTemplates = new ArrayList<>();
 
@@ -569,6 +590,47 @@ public class DigitalOceanCloud extends Cloud {
             }
 
         }
+    }
+
+    @RequirePOST
+    public HttpResponse doProvision(@QueryParameter String template) throws ServletException, IOException {
+        checkPermission(PROVISION);
+        if (template == null) {
+            throw HttpResponses.error(SC_BAD_REQUEST, "The 'template' query parameter is missing");
+        }
+        final Jenkins jenkinsInstance = Jenkins.get();
+        if (jenkinsInstance.isQuietingDown()) {
+            throw HttpResponses.error(SC_BAD_REQUEST, "Jenkins instance is quieting down");
+        }
+        if (jenkinsInstance.isTerminating()) {
+            throw HttpResponses.error(SC_BAD_REQUEST, "Jenkins instance is terminating");
+        }
+
+        SlaveTemplate t = getTemplate(template);
+        if (t == null) {
+            throw HttpResponses.error(SC_BAD_REQUEST, "No such template: " + template);
+        }
+
+        ArrayList<NodeProvisioner.PlannedNode> nodes = new ArrayList<>(
+            provision(t.getLabelSet().size() == 0 ? null : t.getLabelSet().iterator().next(), 1)
+        );
+        if (nodes == null || nodes.isEmpty())
+            throw HttpResponses.error(SC_BAD_REQUEST, "Cloud or AMI instance cap would be exceeded for: " + template);
+
+		try {
+			Node node = nodes.get(0).future.get();
+            if (node == null)
+                throw HttpResponses.error(SC_BAD_REQUEST, "Cloud or AMI instance cap would be exceeded for: " + template);
+
+            //Reconnect a stopped instance, the ADD is invoking the connect only for the node creation
+            Computer c = node.toComputer();
+            c.connect(false);
+            jenkinsInstance.addNode(node);
+
+            return HttpResponses.redirectViaContextPath("/computer/" + node.getNodeName());
+		} catch (InterruptedException | ExecutionException e) {
+            throw HttpResponses.error(SC_INTERNAL_SERVER_ERROR, e);
+		}
     }
 
     @Extension
