@@ -599,6 +599,9 @@ public class DigitalOceanCloud extends Cloud {
             throw HttpResponses.error(SC_BAD_REQUEST, "The 'template' query parameter is missing");
         }
         final Jenkins jenkinsInstance = Jenkins.get();
+        if (jenkinsInstance == null) {
+            throw HttpResponses.error(SC_BAD_REQUEST, "Jenkins instance is not yet started");
+        }
         if (jenkinsInstance.isQuietingDown()) {
             throw HttpResponses.error(SC_BAD_REQUEST, "Jenkins instance is quieting down");
         }
@@ -611,19 +614,25 @@ public class DigitalOceanCloud extends Cloud {
             throw HttpResponses.error(SC_BAD_REQUEST, "No such template: " + template);
         }
 
-        ArrayList<NodeProvisioner.PlannedNode> nodes = new ArrayList<>(
-            provision(t.getLabelSet().size() == 0 ? null : t.getLabelSet().iterator().next(), 1)
-        );
-        if (nodes == null || nodes.isEmpty())
+        Collection<NodeProvisioner.PlannedNode> plannedNodes = provision(t.getLabelSet().size() == 0 ? null : t.getLabelSet().iterator().next(), 1);
+        if (plannedNodes == null || plannedNodes.isEmpty()) {
             throw HttpResponses.error(SC_BAD_REQUEST, "Cloud or AMI instance cap would be exceeded for: " + template);
+        }
+
+        NodeProvisioner.PlannedNode plannedNode = plannedNodes.iterator().next();
+        if (plannedNode == null) {
+            throw HttpResponses.error(SC_BAD_REQUEST, "Cloud or AMI instance cap would be exceeded for: " + template);
+        }
 
 		try {
-			Node node = nodes.get(0).future.get();
+			Node node = plannedNode.future.get();
             if (node == null)
                 throw HttpResponses.error(SC_BAD_REQUEST, "Cloud or AMI instance cap would be exceeded for: " + template);
 
-            //Reconnect a stopped instance, the ADD is invoking the connect only for the node creation
             Computer c = node.toComputer();
+            if (c == null) {
+                throw HttpResponses.error(SC_BAD_REQUEST, "Unable to get computer from node for: " + template);
+            }
             c.connect(false);
             jenkinsInstance.addNode(node);
 
