@@ -3,6 +3,7 @@
   ~
   ~ Copyright (c) 2014 robert.gruendler@dubture.com
   ~               2016 Maxim Biro <nurupo.contributions@gmail.com>
+  ~               2021 Harald Sitter <sitter@kde.org>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +32,10 @@
         <f:textbox/>
     </f:entry>
 
+    <f:entry title="Resolve user image by name rather than ID or slug" field="imageByName">
+        <f:checkbox/>
+    </f:entry>
+
     <f:entry title="Image" field="imageId">
         <f:select />
     </f:entry>
@@ -54,7 +59,7 @@
     <f:entry title="SSH port" field="sshPort">
         <f:textbox default="22" />
     </f:entry>
-    
+
     <f:entry title="Setup Private Networking" field="setupPrivateNetworking">
         <f:checkbox/>
     </f:entry>
