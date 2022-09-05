@@ -62,8 +62,8 @@ import static java.lang.String.format;
  * The {@link DigitalOceanComputerLauncher} is responsible for:
  *
  * <ul>
- *   <li>Connecting to a slave via SSH</li>
- *   <li>Installing Java and the Jenkins agent to the slave</li>
+ *   <li>Connecting to a agent via SSH</li>
+ *   <li>Installing Java and the Jenkins agent to the agent</li>
  * </ul>
  *
  * @author robert.gruendler@dubture.com
