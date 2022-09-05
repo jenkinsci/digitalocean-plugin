@@ -142,7 +142,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         PrintStream logger = listener.getLogger();
 
         if(!(_computer instanceof DigitalOceanComputer)) {
-            logger.println("Cannot handle slave not instance of digital ocean digitalOceanComputer.");
+            logger.println("Cannot handle agent not instance of digital ocean digitalOceanComputer.");
             return;
         }
 

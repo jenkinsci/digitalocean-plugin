@@ -73,7 +73,7 @@ public class DigitalOceanComputer extends AbstractCloudComputer<Slave> implement
         super.onRemoved();
         final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
 
-        LOGGER.info("Slave removed, deleting droplet " + dropletId);
+        LOGGER.info("Agent removed, deleting droplet " + dropletId);
         DigitalOcean.tryDestroyDropletAsync(authToken, dropletId);
     }
 

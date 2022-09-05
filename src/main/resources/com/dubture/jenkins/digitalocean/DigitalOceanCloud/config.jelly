@@ -49,7 +49,7 @@
     </f:entry>
 
     <f:entry field="usePrivateNetworking">
-        <f:checkbox title="Use private networking between master and cloud slaves"/>
+        <f:checkbox title="Use private networking between master and cloud agents"/>
     </f:entry>
 
     <f:entry title="Timeout in minutes" field="timeoutMinutes">
@@ -62,7 +62,7 @@
 
     <f:validateButton title="Test connection" progress="Testing API connectivity..." method="testConnection" with="authToken"/>
 
-    <f:entry title="Droplets" description="List of droplets which can be launched as slaves">
+    <f:entry title="Droplets" description="List of droplets which can be launched as agents">
         <!-- Defines a header so the repeats can be re-ordered -->
         <f:repeatableProperty field="templates" header="Droplet">
             <f:entry title="">

@@ -66,12 +66,12 @@ import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 
 /**
- * A {@link SlaveTemplate} represents the configuration values for creating a new slave via a DigitalOcean droplet.
+ * A {@link SlaveTemplate} represents the configuration values for creating a new agent via a DigitalOcean droplet.
  *
  * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
  *
  * <p>The {@link SlaveTemplate#provision} method
- * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
+ * is the main entry point to create a new droplet via the DigitalOcean API when a new agent needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
  */
@@ -85,7 +85,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     private final int idleTerminationInMinutes;
 
     /**
-     * The maximum number of executors that this slave will run.
+     * The maximum number of executors that this agent will run.
      */
     private final int numExecutors;
 
@@ -130,7 +130,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     private final String userData;
 
     /**
-     * Setup script for preparing the new slave. Differs from userData in that Jenkins runs this script,
+     * Setup script for preparing the new agent. Differs from userData in that Jenkins runs this script,
      * as opposed to the DigitalOcean provisioning process.
      */
     private final String initScript;
@@ -148,14 +148,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param username username to login
      * @param workspacePath path to the workspace
      * @param sshPort ssh port to be used
-     * @param idleTerminationInMinutes how long to wait before destroying a slave
-     * @param numExecutors the number of executors that this slave supports
-     * @param labelString the label for this slave
+     * @param idleTerminationInMinutes how long to wait before destroying a agent
+     * @param numExecutors the number of executors that this agent supports
+     * @param labelString the label for this agent
      * @param labellessJobsAllowed if jobs without a label are allowed
      * @param instanceCap if the number of created instances is capped
      * @param installMonitoring whether expanded monitoring tool agent should be installed
      * @param tags the droplet tags
-     * @param userData user data for DigitalOcean to apply when building the slave
+     * @param userData user data for DigitalOcean to apply when building the agent
      * @param initScript setup script to configure the slave
      * @param imageByName whether to resolve the image by name rather than id
      */
@@ -202,7 +202,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         if (instanceCap == 0) {
             return false;
         }
-        LOGGER.log(Level.INFO, "slave limit check");
+        LOGGER.log(Level.INFO, "agent limit check");
 
         int count = 0;
         List<Node> nodes = Jenkins.getInstance().getNodes();
@@ -216,7 +216,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     public boolean isInstanceCapReachedRemote(List<Droplet> droplets, String cloudName) throws DigitalOceanException {
-        LOGGER.log(Level.INFO, "slave limit check");
+        LOGGER.log(Level.INFO, "agent limit check");
         int count = 0;
         for (Droplet droplet : droplets) {
             if ((droplet.isActive() || droplet.isNew())) {
@@ -239,7 +239,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                            Boolean usePrivateNetworking)
             throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
 
-        LOGGER.log(Level.INFO, "Provisioning slave...");
+        LOGGER.log(Level.INFO, "Provisioning agent...");
 
         try {
             LOGGER.log(Level.INFO, "Starting to provision digital ocean droplet using image: {0}, sizeId = {1}, regionId = {2}",
@@ -273,7 +273,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 droplet.setUserData(userData);
             }
 
-            LOGGER.log(Level.INFO, "Creating slave with new droplet " + dropletName);
+            LOGGER.log(Level.INFO, "Creating agent with new droplet " + dropletName);
 
             DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
             Droplet createdDroplet = apiClient.createDroplet(droplet);
@@ -297,7 +297,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @throws Descriptor.FormException
      */
     private Slave newSlave(ProvisioningActivity.Id provisioningId, String cloudName, Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
-        LOGGER.log(Level.INFO, "Creating new slave...");
+        LOGGER.log(Level.INFO, "Creating new agent...");
         return new Slave(
                 provisioningId,
                 cloudName,
