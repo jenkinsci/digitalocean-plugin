@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2015 Rory Hunter (rory.hunter@blackpepper.co.uk)
  *               2016 Maxim Biro <nurupo.contributions@gmail.com>
+ *               2017, 2021 Harald Sitter <sitter@kde.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +26,7 @@
 
 package com.dubture.jenkins.digitalocean;
 
+import java.text.MessageFormat;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -78,6 +80,12 @@ public final class DigitalOcean {
         return availableSizes;
     }
 
+    static enum ImageFilter
+    {
+        ALLIMAGES,
+        USERIMAGES
+    }
+
     /**
      * Fetches all available images. Unlike the other getAvailable* methods, this returns a map because the values
      * are sorted by a key composed of their OS distribution and version, which is useful for display purposes. Backup
@@ -88,17 +96,24 @@ public final class DigitalOcean {
      * @throws DigitalOceanException
      * @throws RequestUnsuccessfulException
      */
-    static SortedMap<String,Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+    static SortedMap<String,Image> getAvailableImages(String authToken, ImageFilter filter) throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
         SortedMap<String,Image> availableImages = new TreeMap<>(ignoringCase());
 
-        Images images;
+        Images images = null;
         int page = 0;
 
         do {
             page += 1;
-            images = client.getAvailableImages(page, Integer.MAX_VALUE);
+            switch (filter) {
+                case ALLIMAGES:
+                    images = client.getAvailableImages(page, Integer.MAX_VALUE);
+                    break;
+                case USERIMAGES:
+                    images = client.getUserImages(page, Integer.MAX_VALUE);
+                    break;
+            }
             for (Image image : images.getImages()) {
                 String prefix = getPrefix(image);
                 final String name = prefix + image.getDistribution() + " " + image.getName();
@@ -114,6 +129,14 @@ public final class DigitalOcean {
         while (images.getMeta().getTotal() > availableImages.size());
 
         return availableImages;
+    }
+
+    static SortedMap<String,Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+        return getAvailableImages(authToken, ImageFilter.ALLIMAGES);
+    }
+
+    static SortedMap<String,Image> getAvailableUserImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+        return getAvailableImages(authToken, ImageFilter.USERIMAGES);
     }
 
 	private static String getPrefix(Image image) {
@@ -252,6 +275,30 @@ public final class DigitalOcean {
         return availableDroplets;
     }
 
+    static Image getMatchingNamedImage(String authToken, String imageName) throws DigitalOceanException, RequestUnsuccessfulException {
+        List<Image> matchingImages = new ArrayList<Image>();
+
+        final SortedMap<String, Image> images = getAvailableUserImages(authToken);
+        for (Image image : images.values()) {
+            if (imageName.equals(image.getName())) {
+                matchingImages.add(image);
+            }
+        }
+
+        Collections.sort(matchingImages, new Comparator<Image>() {
+            @Override
+            public int compare(Image left, Image right) {
+                return left.getCreatedDate().compareTo(right.getCreatedDate());
+            }
+        });
+
+        if (matchingImages.size() < 1) {
+            throw new RuntimeException(MessageFormat.format("Failed to resolve image name '{0}'", imageName));
+        }
+
+        return matchingImages.get(0);
+    }
+
     /**
      * Fetches information for the specified droplet.
      * @param authToken the API authentication token to use
@@ -265,14 +312,17 @@ public final class DigitalOcean {
         return new DigitalOceanClient(authToken).getDropletInfo(dropletId);
     }
 
-    static Image newImage(String idOrSlug) {
-        Image image;
+    static Image newImage(String authToken, String idOrSlugOrName, Boolean imageByName) throws DigitalOceanException, RequestUnsuccessfulException {
+        if (imageByName) {
+            return getMatchingNamedImage(authToken, idOrSlugOrName);
+        }
 
+        Image image;
         try {
-            image = new Image(Integer.parseInt(idOrSlug));
+            image = new Image(Integer.parseInt(idOrSlugOrName));
         }
         catch (NumberFormatException e) {
-            image = new Image(idOrSlug);
+            image = new Image(idOrSlugOrName);
         }
 
         return image;
