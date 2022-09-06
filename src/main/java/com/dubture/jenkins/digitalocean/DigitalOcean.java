@@ -198,7 +198,7 @@ public final class DigitalOcean {
             type = "High Memory";
         }
 
-        return String.format("$%s/month ($%s/hour): %d%s RAM, %d CPU, %dgb Disk, %dtb Transfer (%s)",
+        return String.format("$%s/month ($%s/hour): %d%s RAM, %d CPU, %dgb Disk, %.2ftb Transfer (%s)",
                 size.getPriceMonthly().toString(),
                 size.getPriceHourly().toString(),
                 memory,
@@ -266,15 +266,7 @@ public final class DigitalOcean {
     }
 
     static Image newImage(String idOrSlug) {
-        Image image;
-
-        try {
-            image = new Image(Integer.parseInt(idOrSlug));
-        }
-        catch (NumberFormatException e) {
-            image = new Image(idOrSlug);
-        }
-
+        Image image = new Image(idOrSlug);
         return image;
     }
 
