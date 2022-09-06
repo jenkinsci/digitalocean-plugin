@@ -491,6 +491,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return name;
     }
 
+    public String getDisplayName() {
+        return String.format("DigitalOcean - %s", getDescription());
+    }
+
+    public String getDescription() {
+        return name;
+    }
+
     public String getSizeId() {
         return sizeId;
     }
