@@ -1,0 +1,6 @@
+---
+jenkins:
+  clouds:
+    - digitalOcean:
+        name: "dojenkins-"
+        sshKeyId: 12345

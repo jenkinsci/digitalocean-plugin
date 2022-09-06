@@ -1,0 +1,28 @@
+---
+configuration-as-code:
+  deprecated: warn
+jenkins:
+  clouds:
+    - digitalOcean:
+        authTokenCredentialId: halkeye-digitalocean
+        privateKeyCredentialId: halkeye-digitalocean-sshkey
+        connectionRetryWait: 10
+        instanceCap: 5
+        name: "dojenkins-happy"
+        sshKeyId: 12345
+        templates:
+        - idleTerminationInMinutes: 10
+          installMonitoring: false
+          instanceCap: 5
+          labellessJobsAllowed: true
+          imageId: "72401866"
+          name: "agent"
+          numExecutors: 2
+          regionId: "tor1"
+          setupPrivateNetworking: false
+          sizeId: "s-2vcpu-2gb"
+          sshPort: 22
+          username: "root"
+          workspacePath: "/jenkins/"
+        timeoutMinutes: 5
+        usePrivateNetworking: false
