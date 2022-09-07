@@ -38,8 +38,6 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.annotation.CheckForNull;
-
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.Credentials;
@@ -67,6 +65,7 @@ import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -82,6 +81,7 @@ import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import hudson.util.XStream2;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
 
 /**
  * The {@link DigitalOceanCloud} contains the main configuration values for running
@@ -96,7 +96,8 @@ import jenkins.model.Jenkins;
  */
 public class DigitalOceanCloud extends Cloud {
     /**
-     * @See authTokenCredentialId
+     * @deprecated use {@link authTokenCredentialId}
+     * @since 1.2.0
      */
     @Deprecated
     private transient String authToken;
@@ -113,7 +114,8 @@ public class DigitalOceanCloud extends Cloud {
     private final Integer sshKeyId;
 
     /**
-     * @See privateKeyCredentialId
+     * @deprecated use {@link privateKeyCredentialId}
+     * @since 1.2.0
      */
     @Deprecated
     private transient String privateKey;
@@ -216,8 +218,37 @@ public class DigitalOceanCloud extends Cloud {
       this.privateKeyCredentialId = credentialId;
     }
 
+    /**
+     * @deprecated use {@link setPrivateKeyCredentialId}
+     * @since 1.2.0
+     */
+    @DataBoundSetter
+    @Deprecated
+    public void setPrivateKey(String credential) {
+      this.privateKeyCredentialId = migratePrivateSshKeyToCredential(getDisplayName(), credential);
+    }
+
+    /**
+     * @deprecated use {@link getPrivateKey}
+     * @since 1.2.0
+     */
+    @Deprecated
+    public String getPrivateKey() {
+        return "";
+    }
+
     public String getPrivateKeyCredentialId() {
       return this.privateKeyCredentialId;
+    }
+
+    /**
+     * @deprecated use {@link setAuthTokenCredentialId}
+     * @since 1.2.0
+     */
+    @DataBoundSetter
+    @Deprecated
+    public void setAuthToken(String credential) {
+      this.authTokenCredentialId = DigitalOceanCloud.migrateAuthTokenToCredential(getDisplayName(), credential);
     }
 
     @DataBoundSetter
@@ -227,6 +258,15 @@ public class DigitalOceanCloud extends Cloud {
 
     public String getAuthTokenCredentialId() {
       return this.authTokenCredentialId;
+    }
+
+    /**
+     * @deprecated use {@link getAuthTokenCredentialId}
+     * @since 1.2.0
+     */
+    @Deprecated
+    public String getAuthToken() {
+        return "";
     }
 
     @Override
@@ -243,7 +283,7 @@ public class DigitalOceanCloud extends Cloud {
 
         LOGGER.log(Level.INFO, "cloud limit check");
 
-        List<Node> nodes = Jenkins.getInstance().getNodes();
+        List<Node> nodes = Jenkins.get().getNodes();
         for (Node n : nodes) {
             if (DropletName.isDropletInstanceOfCloud(n.getDisplayName(), name)) {
                 count++;
@@ -327,7 +367,7 @@ public class DigitalOceanCloud extends Cloud {
 
                             slave = template.provision(provisioningId, dropletName, name, authToken, privateKey,
                                     sshKeyId, droplets1, usePrivateNetworking);
-                            Jenkins.getInstance().addNode(slave);
+                            Jenkins.get().addNode(slave);
                         }
                         slave.toComputer().connect(false).get();
                         return slave;
@@ -473,6 +513,7 @@ public class DigitalOceanCloud extends Cloud {
         }
 
         @Override
+        @SuppressWarnings("rawtypes")
         public boolean canConvert(Class type) {
             return type == DigitalOceanCloud.class;
         }
@@ -491,19 +532,18 @@ public class DigitalOceanCloud extends Cloud {
     }
 
     // borrowed from ec2-plugin
-    private void migratePrivateSshKeyToCredential(String privateKey){
+    public static String migratePrivateSshKeyToCredential(String displayName, String privateKey){
         // GET matching private key credential from Credential API if exists
         Optional<SSHUserPrivateKey> keyCredential = SystemCredentialsProvider.getInstance().getCredentials()
                 .stream()
                 .filter((cred) -> cred instanceof SSHUserPrivateKey)
-                .filter((cred) -> ((SSHUserPrivateKey)cred).getPrivateKey().trim().equals(privateKey.trim()))
+                .filter((cred) -> ((SSHUserPrivateKey)cred).getPrivateKeys().contains(privateKey.trim()))
                 .map(cred -> (SSHUserPrivateKey)cred)
                 .findFirst();
 
         if (keyCredential.isPresent()){
             // SET this.sshKeysCredentialsId with the found credential
-            privateKeyCredentialId = keyCredential.get().getId();
-            return;
+            return keyCredential.get().getId();
         }
 
         // CREATE new credential
@@ -516,49 +556,47 @@ public class DigitalOceanCloud extends Cloud {
                     public List<String> getPrivateKeys() {
                         return Collections.singletonList(privateKey.trim());
                     }
-                }, "", "DigitalOcean Cloud Private Key - " + getDisplayName());
+                }, "", "DigitalOcean Cloud Private Key - " + displayName);
 
         addNewGlobalCredential(sshKeyCredentials);
 
-        privateKeyCredentialId = credsId;
+        return credsId;
+    }
+
+    public static String migrateAuthTokenToCredential(String displayName, String authToken){
+        SystemCredentialsProvider systemCredentialsProvider = SystemCredentialsProvider.getInstance();
+
+        // ITERATE ON EXISTING CREDS AND DON'T CREATE IF EXIST
+        for (Credentials credentials: systemCredentialsProvider.getCredentials()) {
+            if (credentials instanceof StringCredentials) {
+                StringCredentials doCreds = (StringCredentials) credentials;
+                if (authToken.equals(Secret.toString(doCreds.getSecret()))) {
+                    return doCreds.getId();
+                }
+            }
+        }
+
+        // CREATE
+        String credsId = UUID.randomUUID().toString();
+        addNewGlobalCredential(new StringCredentialsImpl(CredentialsScope.SYSTEM, credsId, "Digitalocean Auth Token - " + displayName, Secret.fromString(authToken)));
+        return credsId;
     }
 
     protected Object readResolve() {
         if (this.privateKey != null ){
-            migratePrivateSshKeyToCredential(this.privateKey);
+            this.privateKeyCredentialId = DigitalOceanCloud.migratePrivateSshKeyToCredential(getDisplayName(), this.privateKey);
         }
         this.privateKey = null; // This enforces it not to be persisted and that CasC will never output privateKey on export
 
         if (this.authToken != null) {
-            SystemCredentialsProvider systemCredentialsProvider = SystemCredentialsProvider.getInstance();
-
-            // ITERATE ON EXISTING CREDS AND DON'T CREATE IF EXIST
-            for (Credentials credentials: systemCredentialsProvider.getCredentials()) {
-                if (credentials instanceof StringCredentials) {
-                    StringCredentials doCreds = (StringCredentials) credentials;
-                    if (this.authToken.equals(doCreds.getSecret().toString())) {
-                        this.authTokenCredentialId = doCreds.getId();
-                        this.authToken = null;
-                        return this;
-                    }
-                }
-            }
-
-            // CREATE
-            String credsId = UUID.randomUUID().toString();
-            addNewGlobalCredential(new StringCredentialsImpl(CredentialsScope.SYSTEM, credsId, "EC2 Cloud - " + getDisplayName(), Secret.fromString(this.authToken)));
-            this.authTokenCredentialId = credsId;
-            this.authToken = null;
-
-
-            // PROBLEM, GLOBAL STORE NOT FOUND
-            LOGGER.log(Level.WARNING, "DigitalOcean Plugin could not migrate credentials to the Jenkins Global Credentials Store, DigitalOcean Plugin for cloud {0} must be manually reconfigured", getDisplayName());
+            this.authTokenCredentialId = DigitalOceanCloud.migrateAuthTokenToCredential(getDisplayName(), this.authToken);
         }
+        this.authToken = null; // This enforces it not to be persisted and that CasC will never output privateKey on export
 
         return this;
     }
 
-    private void addNewGlobalCredential(Credentials credentials){
+    private static void addNewGlobalCredential(Credentials credentials){
         for (CredentialsStore credentialsStore: CredentialsProvider.lookupStores(Jenkins.get())) {
             if (credentialsStore instanceof  SystemCredentialsProvider.StoreImpl) {
                 try {
@@ -573,7 +611,6 @@ public class DigitalOceanCloud extends Cloud {
 
     @Extension
     public static final class DescriptorImpl extends Descriptor<hudson.slaves.Cloud> {
-
         public DescriptorImpl() {
             load();
         }

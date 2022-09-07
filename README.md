@@ -113,7 +113,7 @@ jenkins.save()
 jenkins:
   clouds:
     - digitalOcean:
-        authToken: "01234567890123456789012345678901234567890123456789",
+        authToken: "01234567890123456789012345678901234567890123456789"
         connectionRetryWait: 10
         instanceCap: 5
         name: "mycompany"
@@ -133,7 +133,7 @@ jenkins:
           Ce1kzwKacU+b/2xhAkEAovqzUMFB9YEbc8C9AzTej5F2ttyuKBDJJ+kvQeJP+PnW
           4ovFI4Ee5UmTWI6k/Md9BM+MvEMWs3nPoF4MULHqNg==
           -----END RSA PRIVATE KEY-----
-        sshKeyId: 1234567,
+        sshKeyId: 1234567
         templates:
           - idleTerminationInMinutes: 10
             imageId: "docker-20-04"
