@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2014 robert.gruendler@dubture.com
  *               2016 Maxim Biro <nurupo.contributions@gmail.com>
- *               2017 Harald Sitter <sitter@kde.org>
+ *               2017, 2021 Harald Sitter <sitter@kde.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -93,6 +93,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final Boolean labellessJobsAllowed;
 
+    private final Boolean imageByName;
+
     /**
      * The Image to be used for the droplet.
      */
@@ -155,17 +157,19 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param tags the droplet tags
      * @param userData user data for DigitalOcean to apply when building the agent
      * @param initScript setup script to configure the agent
+     * @param imageByName whether to resolve the image by name rather than id
      */
     @DataBoundConstructor
     public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
                          Integer sshPort, Boolean setupPrivateNetworking, String idleTerminationInMinutes, String numExecutors, String labelString,
                          Boolean labellessJobsAllowed, String instanceCap, Boolean installMonitoring, String tags,
-                         String userData, String initScript) {
+                         String userData, String initScript, Boolean imageByName) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
 
         this.name = name;
+        this.imageByName = imageByName;
         this.imageId = imageId;
         this.sizeId = sizeId;
         this.regionId = regionId;
@@ -257,7 +261,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setName(dropletName);
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
-            droplet.setImage(DigitalOcean.newImage(imageId));
+            droplet.setImage(DigitalOcean.newImage(authToken, imageId, imageByName));
             droplet.setKeys(Arrays.asList(new Key(sshKeyId)));
             droplet.setInstallMonitoring(installMonitoringAgent);
             droplet.setEnablePrivateNetworking(
@@ -442,22 +446,21 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return model;
         }
 
-        public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId) throws Exception {
-
+        public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId, @QueryParameter Boolean imageByName) throws Exception {
             ListBoxModel model = new ListBoxModel();
-            String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
+            final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             if (StringUtils.isBlank(authToken)) {
               return model;
             }
 
-            SortedMap<String, Image> availableImages = DigitalOcean.getAvailableImages(DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId));
+            final SortedMap<String, Image> availableImages = imageByName ? DigitalOcean.getAvailableUserImages(authToken) : DigitalOcean.getAvailableImages(authToken);
 
             for (Map.Entry<String, Image> entry : availableImages.entrySet()) {
                 final Image image = entry.getValue();
 
                 // For non-snapshots, use the image ID instead of the slug (which isn't available anyway)
                 // so that we can build images based upon backups.
-                final String value = DigitalOcean.getImageIdentifier(image);
+                final String value = imageByName ? image.getName() : DigitalOcean.getImageIdentifier(image);
 
                 model.add(entry.getKey(), value);
             }
@@ -513,6 +516,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public Set<LabelAtom> getLabelSet() {
         return labelSet;
+    }
+
+    public Boolean getImageByName() {
+        return imageByName;
     }
 
     public String getImageId() {
