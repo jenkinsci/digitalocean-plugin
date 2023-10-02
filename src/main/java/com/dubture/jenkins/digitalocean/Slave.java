@@ -125,7 +125,7 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
      * @return the DigitalOceanCloud associated with the specified cloudName
      */
     public DigitalOceanCloud getCloud() {
-        return (DigitalOceanCloud) Jenkins.getInstance().getCloud(cloudName);
+        return (DigitalOceanCloud) Jenkins.get().getCloud(cloudName);
     }
 
     /**
@@ -133,7 +133,7 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
      * @return the remote admin user, defaulting to "root"
      */
     public String getRemoteAdmin() {
-        if (remoteAdmin == null || remoteAdmin.length() == 0)
+        if (remoteAdmin == null || remoteAdmin.isEmpty())
             return "root";
         return remoteAdmin;
     }
