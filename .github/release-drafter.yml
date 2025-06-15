@@ -1,2 +1,0 @@
-_extends: .github
-tag-template: digitalocean-plugin-$NEXT_MINOR_VERSION
