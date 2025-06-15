@@ -9,7 +9,7 @@
     </parent>
     <groupId>com.dubture.jenkins</groupId>
     <artifactId>digitalocean-plugin</artifactId>
-    <version>${revision}${changelist}</version>
+    <version>${changelist}</version>
     <packaging>hpi</packaging>
 
     <name>DigitalOcean plugin</name>
@@ -29,8 +29,7 @@
     </scm>
 
     <properties>
-        <revision>1.3.2</revision>
-        <changelist>-SNAPSHOT</changelist>
+        <changelist>999999-SNAPSHOT</changelist>
         <gitHubRepo>jenkinsci/digitalocean-plugin</gitHubRepo>
         <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
         <jenkins.baseline>2.492</jenkins.baseline>
