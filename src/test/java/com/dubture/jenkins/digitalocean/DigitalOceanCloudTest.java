@@ -24,32 +24,36 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class DigitalOceanCloudTest {
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-    /*
-    @Rule
-    public JenkinsRule jenkinsRule = new JenkinsRule();
-    */
+@WithJenkins
+class DigitalOceanCloudTest {
+
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void testSomething() throws Exception {
-
+    void testSomething() throws Exception {
         /*
         List<SlaveTemplate> templates = new ArrayList<SlaveTemplate>();
         templates.add(new SlaveTemplate("444", "4", "4", "4", "10", ""));
-        jenkinsRule.getInstance().clouds.add(new DigitalOceanCloud("foo", "key", "id", "key", "2", templates));
-        hudson.slaves.DigitalOceanCloud foo = jenkinsRule.getInstance().getCloud("foo");
-        jenkinsRule.createSlave();
-        List<Node> nodes = jenkinsRule.getInstance().getNodes();
+        j.getInstance().clouds.add(new DigitalOceanCloud("foo", "key", "id", "key", "2", templates));
+        hudson.slaves.DigitalOceanCloud foo = j.getInstance().getCloud("foo");
+        j.createSlave();
+        List<Node> nodes = j.getInstance().getNodes();
         */
 
         //TODO: find out how to write jenkins tests :)
         // i'm seeing Caused by: java.io.FileNotFoundException: jenkins/./target/jenkins-for-test.exploding (No such file or directory)
-        Assert.assertTrue(true);
-
-
+        assertTrue(true);
     }
 }
