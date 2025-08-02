@@ -201,7 +201,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         LOGGER.log(Level.INFO, "agent limit check");
 
         int count = 0;
-        List<Node> nodes = Jenkins.getInstance().getNodes();
+        List<Node> nodes = Jenkins.get().getNodes();
         for (Node n : nodes) {
             if (DropletName.isDropletInstanceOfSlave(n.getDisplayName(), cloudName, name)) {
                 count++;
@@ -258,7 +258,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
             droplet.setImage(DigitalOcean.newImage(imageId));
-            droplet.setKeys(Arrays.asList(new Key(sshKeyId)));
+            droplet.setKeys(Collections.singletonList(new Key(sshKeyId)));
             droplet.setInstallMonitoring(installMonitoringAgent);
             droplet.setEnablePrivateNetworking(
                     (usePrivateNetworking == null ? false : usePrivateNetworking) || (setupPrivateNetworking == null ? false : setupPrivateNetworking)
@@ -484,7 +484,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     @SuppressWarnings("unchecked")
     public Descriptor<SlaveTemplate> getDescriptor() {
-        return Jenkins.getInstance().getDescriptor(getClass());
+        return Jenkins.get().getDescriptor(getClass());
     }
 
     public String getName() {

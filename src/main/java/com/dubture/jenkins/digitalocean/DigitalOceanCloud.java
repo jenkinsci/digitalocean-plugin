@@ -81,7 +81,6 @@ import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import hudson.util.XStream2;
 import jenkins.model.Jenkins;
-import net.sf.json.JSONObject;
 
 /**
  * The {@link DigitalOceanCloud} contains the main configuration values for running

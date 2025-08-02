@@ -45,6 +45,7 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
@@ -208,7 +209,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, e.getMessage(), e);
             try {
-                Jenkins.getInstance().removeNode(node);
+                Jenkins.get().removeNode(node);
             } catch (Exception ee) {
                 ee.printStackTrace(logger);
             }
@@ -242,7 +243,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         }
 
         logger.println("Executing init script");
-        scp.put(initScript.getBytes("UTF-8"), "init.sh", "/tmp", "0700");
+        scp.put(initScript.getBytes(StandardCharsets.UTF_8), "init.sh", "/tmp", "0700");
         Session session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
         session.execCommand(buildUpCommand(digitalOceanComputer, "/tmp/init.sh"));
