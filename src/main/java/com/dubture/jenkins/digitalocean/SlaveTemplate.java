@@ -36,8 +36,6 @@ import java.util.SortedMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.annotation.Nonnull;
-
 import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
@@ -48,6 +46,7 @@ import com.myjeeva.digitalocean.pojo.Key;
 import com.myjeeva.digitalocean.pojo.Region;
 import com.myjeeva.digitalocean.pojo.Size;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -316,7 +315,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     @Extension
     public static final class DescriptorImpl extends Descriptor<SlaveTemplate> {
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "DigitalOcean Agent Template";

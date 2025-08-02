@@ -26,10 +26,10 @@
 package com.dubture.jenkins.digitalocean;
 
 import com.myjeeva.digitalocean.pojo.Droplet;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Descriptor;
 import hudson.slaves.CloudSlaveRetentionStrategy;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanComputer> {
 
     private static class DescriptorImpl extends Descriptor<hudson.slaves.RetentionStrategy<?>> {
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "DigitalOcean";
