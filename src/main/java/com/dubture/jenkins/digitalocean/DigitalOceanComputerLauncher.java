@@ -257,7 +257,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         scp.put(initScript.getBytes(StandardCharsets.UTF_8), "init.sh", "/tmp", "0700");
         Session session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(digitalOceanComputer, "/tmp/init.sh"));
+        session.execCommand("/tmp/init.sh");
 
         session.getStdin().close();    // nothing to write here
         session.getStderr().close();   // we are not supposed to get anything from stderr
@@ -273,7 +273,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         // Needs a tty to run sudo.
         session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(digitalOceanComputer, "touch ~/.hudson-run-init"));
+        session.execCommand("touch ~/.hudson-run-init");
         session.close();
 
         return true;
@@ -419,13 +419,6 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
             Thread.sleep(100);
         }
         return -1;
-    }
-
-    private String buildUpCommand(DigitalOceanComputer digitalOceanComputer, String command) {
-//        if (!digitalOceanComputer.getRemoteAdmin().equals("root")) {
-//            command = digitalOceanComputer.getRootCommandPrefix() + " " + command;
-//        }
-        return command;
     }
 
     private static void sleep(int seconds) {
