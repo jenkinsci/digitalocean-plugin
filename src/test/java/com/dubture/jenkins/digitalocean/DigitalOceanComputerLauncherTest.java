@@ -1,29 +1,49 @@
 package com.dubture.jenkins.digitalocean;
 
-import com.trilead.ssh2.SCPClient;
-import com.trilead.ssh2.Session;
-import hudson.model.TaskListener;
-import hudson.remoting.Channel;
-import hudson.slaves.SlaveComputer;
-import java.io.ByteArrayInputStream;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.trilead.ssh2.SCPClient;
-import com.trilead.ssh2.Connection;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import com.myjeeva.digitalocean.pojo.Droplet;
+import com.trilead.ssh2.Connection;
+import com.trilead.ssh2.SCPClient;
+import com.trilead.ssh2.Session;
+
+import hudson.model.TaskListener;
+import hudson.slaves.SlaveComputer;
 
 @ExtendWith(MockitoExtension.class)
+@WithJenkins
 class DigitalOceanComputerLauncherTest {
+
+    public JenkinsRule j;
+
+    @Mock
+    private DigitalOceanCloud cl;
+
+    @Mock
+    private SlaveTemplate st;
 
     @Mock
     private DigitalOceanComputer computer;
@@ -47,30 +67,40 @@ class DigitalOceanComputerLauncherTest {
     private ByteArrayOutputStream outputStream;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp(JenkinsRule rule) throws Exception {
+        j = rule;
+        j.jenkins.clouds.clear();
+        List<SlaveTemplate> templates = new ArrayList<>();
+        templates.add(st);
+
+        // when(cl.getDisplayName()).thenReturn("myCloud");
+        // when(cl.getTemplates()).thenReturn(templates);
+        j.jenkins.clouds.add(cl);
+
         // Setup output stream for logger
         outputStream = new ByteArrayOutputStream();
         PrintStream printStream = new PrintStream(outputStream);
         when(listener.getLogger()).thenReturn(printStream);
+        // when(node.getNodeName()).thenReturn("nodeName");
 
         // Setup computer and node
-        when(computer.getNode()).thenReturn(node);
-        when(computer.getName()).thenReturn("test-agent");
-        when(computer.getRemoteAdmin()).thenReturn("test-admin");
+        //when(computer.getNode()).thenReturn(node);
+        //when(computer.getName()).thenReturn("test-agent");
+        //when(computer.getRemoteAdmin()).thenReturn("test-admin");
 
         // Setup node properties
-        when(node.getPrivateKey()).thenReturn("test-private-key");
-        when(node.getJvmOpts()).thenReturn("");
-        when(node.getInitScript()).thenReturn(null);
+        //when(node.getPrivateKey()).thenReturn("test-private-key");
+        //when(node.getJvmOpts()).thenReturn("");
+        //when(node.getInitScript()).thenReturn(null);
 
         // Create launcher instance
         launcher = new DigitalOceanComputerLauncher();
 
         // Mock SSH connection
-        when(connection.authenticateWithPublicKey(anyString(), any(char[].class), anyString())).thenReturn(true);
-        when(connection.createSCPClient()).thenReturn(scpClient);
-        when(connection.openSession()).thenReturn(session);
-        when(connection.exec(anyString(), any(PrintStream.class))).thenReturn(0);
+        //when(connection.authenticateWithPublicKey(anyString(), any(char[].class), anyString())).thenReturn(true);
+        //when(connection.createSCPClient()).thenReturn(scpClient);
+        //when(connection.openSession()).thenReturn(session);
+        //when(connection.exec(anyString(), any(PrintStream.class))).thenReturn(0);
     }
 
     @Test
@@ -87,6 +117,30 @@ class DigitalOceanComputerLauncherTest {
     }
 
     @Test
+    void testLaunchWithDigitalOceanComputer() throws Exception {
+        launcher = new DigitalOceanComputerLauncher();
+
+        when(st.provision(any(ProvisioningActivity.Id.class), anyString(), anyString(), anyString(), anyString(), any(Integer.class), anyList(), anyBoolean())).thenReturn(node);
+        
+        //LabelAtom testingLabel = new LabelAtom("testing");
+        //DumbSlave agent = j.createSlave(testingLabel);
+        // agent.setLauncher(launcher);
+
+        // j.waitOnline(agent);
+
+        // Given
+        DigitalOceanComputer doComputer = new DigitalOceanComputer(node);
+        when(doComputer.getNode()).thenReturn(node);
+
+        // When
+        launcher.launch(doComputer, listener);
+
+        // Then
+        String output = outputStream.toString();
+        assertEquals("something", output);
+    }
+
+    @Test
     void testLaunchWithNullNode() throws Exception {
         // Given
         when(computer.getNode()).thenReturn(null);
@@ -98,50 +152,4 @@ class DigitalOceanComputerLauncherTest {
         String output = outputStream.toString();
         assertTrue(output.contains("No real node is available. ABORT"));
     }
-
-    /*
-    @Test
-    void testGetUtcDate() {
-        // Given
-        Date testDate = new Date(1640995200000L); // 2022-01-01 00:00:00 UTC
-
-        // When
-        String result = DigitalOceanComputerLauncher.getUtcDate(testDate);
-
-        // Then
-        assertTrue(result.startsWith("2022-01-01 00:00:00"));
-        assertTrue(result.endsWith("UTC"));
-    }
-    */
-
-    // @Test
-    // void testOnClosedCallback() {
-    //     // Given
-    //     Channel channel = mock(Channel.class);
-    //     IOException cause = new IOException("Test exception");
-    //
-    //     // Create a spy to verify the callback behavior
-    //     DigitalOceanComputerLauncher launcherSpy = spy(launcher);
-    //     doReturn(connection).when(launcherSpy).connectToSsh(any(), any());
-    //
-    //     // Setup session behavior
-    //     when(connection.openSession()).thenReturn(session);
-    //     when(session.getStdin()).thenReturn(new ByteArrayOutputStream());
-    //     when(session.getStdout()).thenReturn(new ByteArrayInputStream(new byte[0]));
-    //     when(session.getStderr()).thenReturn(new ByteArrayInputStream(new byte[0]));
-    //
-    //     // When
-    //     launcherSpy.launch(computer, listener);
-    //
-    //     // Get the callback and trigger it
-    //     ArgumentCaptor<Channel.Listener> listenerCaptor = ArgumentCaptor.forClass(Channel.Listener.class);
-    //     // verify(computer).setChannel(any(), any(), any(), listenerCaptor.capture());
-    //
-    //     Channel.Listener callback = listenerCaptor.getValue();
-    //     callback.onClosed(channel, cause);
-    //
-    //     // Then
-    //     verify(session).close();
-    //     verify(connection).close();
-    // }
 }
