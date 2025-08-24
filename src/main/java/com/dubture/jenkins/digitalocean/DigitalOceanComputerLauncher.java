@@ -26,7 +26,6 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.pojo.Droplet;
@@ -39,11 +38,9 @@ import hudson.model.TaskListener;
 import hudson.remoting.Channel;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.SlaveComputer;
-import jenkins.model.Jenkins;
-import org.apache.commons.io.IOUtils;
-
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.Runtime;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -56,8 +53,8 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import static java.lang.String.format;
+import jenkins.model.Jenkins;
+import org.apache.commons.io.IOUtils;
 
 /**
  * The {@link DigitalOceanComputerLauncher} is responsible for:
@@ -99,7 +96,13 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         }
     }
 
-    private static final List<String> VALID_VERSIONS = Arrays.asList("1.8", "1.7", "1.9");
+    private static final List<String> VALID_VERSIONS = Arrays.asList(
+        String.valueOf(Runtime.version().feature()),
+        "18",
+        "11",
+        "22",
+        "1.8"
+    );
 
     private static final Collection<JavaInstaller> INSTALLERS = new HashSet<JavaInstaller>() {{
         add(new JavaInstaller() { // apt
@@ -114,7 +117,11 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
             }
 
             private String getPackageName(String javaVersion) {
-                return "openjdk-" + javaVersion.replaceFirst("1.", "") + "-jre-headless";
+                if (javaVersion.startsWith("1.")) {
+                    return "openjdk-" + javaVersion.substring(2) + "-jre-headless";
+                } else {
+                    return "openjdk-" + javaVersion.replaceFirst("^1\\\\.", "") + "-jre-headless";
+                }
             }
         });
         add(new JavaInstaller() { // yum
@@ -129,7 +136,11 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
             }
 
             private String getPackageName(String javaVersion) {
-                return "java-" + javaVersion + ".0-openjdk-headless";
+                if (javaVersion.startsWith("1.")) {
+                    return "java-" + javaVersion + ".0-openjdk-headless";
+                } else {
+                    return "java-" + javaVersion + "-openjdk-headless";
+                }
             }
         });
     }};
@@ -246,7 +257,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         scp.put(initScript.getBytes(StandardCharsets.UTF_8), "init.sh", "/tmp", "0700");
         Session session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(digitalOceanComputer, "/tmp/init.sh"));
+        session.execCommand("/tmp/init.sh");
 
         session.getStdin().close();    // nothing to write here
         session.getStderr().close();   // we are not supposed to get anything from stderr
@@ -262,7 +273,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         // Needs a tty to run sudo.
         session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(digitalOceanComputer, "touch ~/.hudson-run-init"));
+        session.execCommand("touch ~/.hudson-run-init");
         session.close();
 
         return true;
@@ -333,7 +344,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
                 try {
                     final String host = getIpAddress(digitalOceanComputer);
 
-                    if (Strings.isNullOrEmpty(host) || "0.0.0.0".equals(host)) {
+                    if (host == null || host.trim().isEmpty() || "0.0.0.0".equals(host)) {
                         logger.println("No ip address yet, your host is most likely waiting for an ip address.");
                     }
                     else {
@@ -353,7 +364,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
             sleep(sleepTime);
         }
 
-        throw new RuntimeException(format(
+        throw new RuntimeException(String.format(
             "Timed out after %d seconds of waiting for ssh to become available (max timeout configured is %s)",
             waitTime / 1000,
             timeout / 1000));
@@ -408,13 +419,6 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
             Thread.sleep(100);
         }
         return -1;
-    }
-
-    private String buildUpCommand(DigitalOceanComputer digitalOceanComputer, String command) {
-//        if (!digitalOceanComputer.getRemoteAdmin().equals("root")) {
-//            command = digitalOceanComputer.getRootCommandPrefix() + " " + command;
-//        }
-        return command;
     }
 
     private static void sleep(int seconds) {
