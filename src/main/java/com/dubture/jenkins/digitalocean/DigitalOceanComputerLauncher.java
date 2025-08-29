@@ -26,7 +26,6 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.pojo.Droplet;
@@ -39,25 +38,20 @@ import hudson.model.TaskListener;
 import hudson.remoting.Channel;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.SlaveComputer;
-import jenkins.model.Jenkins;
-import org.apache.commons.io.IOUtils;
-
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.Runtime;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
-import static java.lang.String.format;
+import jenkins.model.Jenkins;
+import org.apache.commons.io.IOUtils;
 
 /**
  * The {@link DigitalOceanComputerLauncher} is responsible for:
@@ -88,36 +82,29 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         }
 
         protected int installJava(Connection conn, PrintStream logger) throws IOException, InterruptedException {
-            int result = 1;
             for (String version : DigitalOceanComputerLauncher.VALID_VERSIONS) {
-                result = conn.exec(getInstallCommand(version), logger);
+                int result = conn.exec(getInstallCommand(version), logger);
                 if (result == 0) {
                     return result;
                 }
             }
-            return result;
+            return 1;
         }
     }
 
-    private static final List<String> VALID_VERSIONS = Arrays.asList("1.8", "1.7", "1.9");
+    private static final List<String> VALID_VERSIONS = Stream.concat(
+        // first grab the current runtime version
+        Stream.of(String.valueOf(Runtime.version().feature())),
+        // then try any of the java versions listed as supported by https://www.jenkins.io/doc/book/platform-information/support-policy-java/
+        Stream.of(
+            "21",
+            "17",
+            "11"
+        )
+    ).toList();
 
-    private static final Collection<JavaInstaller> INSTALLERS = new HashSet<JavaInstaller>() {{
-        add(new JavaInstaller() { // apt
-            @Override
-            protected String getInstallCommand(String javaVersion) {
-                return "apt-get update -q && apt-get install -y " + getPackageName(javaVersion);
-            }
-
-            @Override
-            protected String checkPackageManager() {
-                return "which apt-get";
-            }
-
-            private String getPackageName(String javaVersion) {
-                return "openjdk-" + javaVersion.replaceFirst("1.", "") + "-jre-headless";
-            }
-        });
-        add(new JavaInstaller() { // yum
+    private static final List<JavaInstaller> INSTALLERS = Arrays.asList(
+        new JavaInstaller() { // yum
             @Override
             protected String getInstallCommand(String javaVersion) {
                 return "yum install -y " + getPackageName(javaVersion);
@@ -129,10 +116,25 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
             }
 
             private String getPackageName(String javaVersion) {
-                return "java-" + javaVersion + ".0-openjdk-headless";
+                return "java-" + javaVersion + "-openjdk-headless";
             }
-        });
-    }};
+        },
+        new JavaInstaller() { // apt
+            @Override
+            protected String getInstallCommand(String javaVersion) {
+                return "apt-get update -q && apt-get install -y " + getPackageName(javaVersion);
+            }
+
+            @Override
+            protected String checkPackageManager() {
+                return "which apt-get";
+            }
+
+            private String getPackageName(String javaVersion) {
+                return "openjdk-" + javaVersion + "-jre-headless";
+            }
+        }
+    );
 
     /**
      * Connects to the given {@link DigitalOceanComputer} via SSH and installs Java/Jenkins agent if necessary.
@@ -246,7 +248,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         scp.put(initScript.getBytes(StandardCharsets.UTF_8), "init.sh", "/tmp", "0700");
         Session session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(digitalOceanComputer, "/tmp/init.sh"));
+        session.execCommand("/tmp/init.sh");
 
         session.getStdin().close();    // nothing to write here
         session.getStderr().close();   // we are not supposed to get anything from stderr
@@ -262,7 +264,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         // Needs a tty to run sudo.
         session = conn.openSession();
         session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(digitalOceanComputer, "touch ~/.hudson-run-init"));
+        session.execCommand("touch ~/.hudson-run-init");
         session.close();
 
         return true;
@@ -277,7 +279,8 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
 
     private boolean installJava(final PrintStream logger, final Connection conn) throws IOException, InterruptedException {
         logger.println("Verifying that java exists");
-        if (conn.exec("java -fullversion", logger) != 0) {
+        int exitCode = conn.exec("java -fullversion", logger);
+        if (exitCode != 0) {
             logger.println("Try to install one of these Java-versions: " + VALID_VERSIONS);
             //TODO Web UI to let users install a custom java (or any other type of tool) package.
             logger.println("Trying to find a working package manager");
@@ -333,7 +336,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
                 try {
                     final String host = getIpAddress(digitalOceanComputer);
 
-                    if (Strings.isNullOrEmpty(host) || "0.0.0.0".equals(host)) {
+                    if (host == null || host.trim().isEmpty() || "0.0.0.0".equals(host)) {
                         logger.println("No ip address yet, your host is most likely waiting for an ip address.");
                     }
                     else {
@@ -353,7 +356,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
             sleep(sleepTime);
         }
 
-        throw new RuntimeException(format(
+        throw new RuntimeException(String.format(
             "Timed out after %d seconds of waiting for ssh to become available (max timeout configured is %s)",
             waitTime / 1000,
             timeout / 1000));
@@ -373,7 +376,7 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
         }
     }
 
-    private Connection getDropletConnection(String host, int port, PrintStream logger) throws IOException {
+    protected Connection getDropletConnection(String host, int port, PrintStream logger) throws IOException {
         logger.println("Connecting to " + host + " on port " + port + ". ");
         Connection conn = new Connection(host, port);
         try {
@@ -408,13 +411,6 @@ public class DigitalOceanComputerLauncher extends ComputerLauncher {
             Thread.sleep(100);
         }
         return -1;
-    }
-
-    private String buildUpCommand(DigitalOceanComputer digitalOceanComputer, String command) {
-//        if (!digitalOceanComputer.getRemoteAdmin().equals("root")) {
-//            command = digitalOceanComputer.getRootCommandPrefix() + " " + command;
-//        }
-        return command;
     }
 
     private static void sleep(int seconds) {

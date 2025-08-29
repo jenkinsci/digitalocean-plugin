@@ -74,7 +74,6 @@ import jenkins.model.Jenkins;
  *
  * @author robert.gruendler@dubture.com
  */
-@SuppressWarnings("unused")
 public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final String name;
