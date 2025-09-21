@@ -60,7 +60,7 @@
         <f:textbox default="10"/>
     </f:entry>
 
-    <f:validateButton title="Test connection" progress="Testing API connectivity..." method="testConnection" with="authToken"/>
+    <f:validateButton title="Test connection" progress="Testing API connectivity..." method="testConnection" with="authTokenCredentialId"/>
 
     <f:entry title="Droplets" description="List of droplets which can be launched as agents">
         <!-- Defines a header so the repeats can be re-ordered -->
