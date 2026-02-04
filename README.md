@@ -30,6 +30,7 @@ def agentTemplateParameters = [
   labelString:              'digitalocean.toronto.ubuntu.17.10',
   name:                     'digitalocean.toronto.ubuntu.17.10',
   numExecutors:             '1',
+  oneShot:                  false,
   regionId:                 'tor1',
   sizeId:                   '512mb',
   sshPort:                  22,
@@ -81,7 +82,8 @@ SlaveTemplate agentTemplate = new SlaveTemplate(
   agentTemplateParameters.installMonitoring,
   agentTemplateParameters.tags,
   agentTemplateParameters.userData,
-  agentTemplateParameters.initScript
+  agentTemplateParameters.initScript,
+  agentTemplateParameters.oneShot
 )
 
 // https://github.com/jenkinsci/digitalocean-plugin/blob/digitalocean-plugin-0.17/src/main/java/com/dubture/jenkins/digitalocean/DigitalOceanCloud.java

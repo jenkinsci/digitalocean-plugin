@@ -57,6 +57,7 @@ class ConfigurationAsCodeTest {
         assertNull(slaveTemplate.getUserData());
         assertEquals("root", slaveTemplate.getUsername());
         assertEquals("/jenkins/", slaveTemplate.getWorkspacePath());
+        assertEquals(false, slaveTemplate.isOneShot());
     }
 
     @Test
@@ -101,5 +102,35 @@ class ConfigurationAsCodeTest {
         assertNull(slaveTemplate.getUserData());
         assertEquals("root", slaveTemplate.getUsername());
         assertEquals("/jenkins/", slaveTemplate.getWorkspacePath());
+        assertEquals(false, slaveTemplate.isOneShot());
+    }
+
+    @Test
+    @ConfiguredWithCode("oneShot.yml")
+    void testOneShot(JenkinsConfiguredWithCodeRule j) {
+        final DigitalOceanCloud doCloud = (DigitalOceanCloud) Jenkins.get().getCloud("dojenkins-oneshot");
+        assertNotNull(doCloud);
+
+        final List<SlaveTemplate> templates = doCloud.getTemplates();
+        assertEquals(1, templates.size());
+
+        SlaveTemplate slaveTemplate = templates.get(0);
+        assertEquals(10, slaveTemplate.getIdleTerminationInMinutes());
+        assertEquals("72401866", slaveTemplate.getImageId());
+        assertNull(slaveTemplate.getInitScript());
+        assertEquals(5, slaveTemplate.getInstanceCap());
+        assertEquals(Collections.emptySet(), slaveTemplate.getLabelSet());
+        assertNull(slaveTemplate.getLabelString());
+        assertEquals("", slaveTemplate.getLabels());
+        assertEquals("agent-oneshot", slaveTemplate.getName());
+        assertEquals(2, slaveTemplate.getNumExecutors());
+        assertEquals("tor1", slaveTemplate.getRegionId());
+        assertEquals("s-2vcpu-2gb", slaveTemplate.getSizeId());
+        assertEquals(22, slaveTemplate.getSshPort());
+        assertNull(slaveTemplate.getTags());
+        assertNull(slaveTemplate.getUserData());
+        assertEquals("root", slaveTemplate.getUsername());
+        assertEquals("/jenkins/", slaveTemplate.getWorkspacePath());
+        assertEquals(true, slaveTemplate.isOneShot());
     }
 }

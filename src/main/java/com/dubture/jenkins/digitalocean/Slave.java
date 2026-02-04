@@ -77,10 +77,12 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     private final int sshPort;
 
+    private final boolean oneShot;
+
     public Slave(ProvisioningActivity.Id provisioningId, String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
                  String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
                  String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
-                 List<? extends NodeProperty<?>> nodeProperties, String initScript)
+                 List<? extends NodeProperty<?>> nodeProperties, String initScript, boolean oneShot)
             throws Descriptor.FormException, IOException {
 
         super(name, nodeDescription, remoteFS, numExecutors, Mode.NORMAL, labelString, launcher, retentionStrategy, nodeProperties);
@@ -95,6 +97,7 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
         this.jvmOpts = "";
         this.sshPort = sshPort;
         startTimeMillis = System.currentTimeMillis();
+        this.oneShot = oneShot;
     }
 
     @Extension
@@ -182,5 +185,9 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     public int getSshPort() {
         return sshPort;
+    }
+
+    public boolean isOneShot() {
+        return oneShot;
     }
 }

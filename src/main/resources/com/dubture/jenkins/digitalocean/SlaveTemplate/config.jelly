@@ -75,6 +75,10 @@
         <f:textbox default="10" />
     </f:entry>
 
+    <f:entry title="One-shot mode" field="oneShot">
+        <f:checkbox title="Enable one-shot mode: agent runs exactly one job and terminates immediately after"/>
+    </f:entry>
+
     <f:entry title="Instance cap" field="instanceCap">
         <f:textbox default="2"/>
     </f:entry>

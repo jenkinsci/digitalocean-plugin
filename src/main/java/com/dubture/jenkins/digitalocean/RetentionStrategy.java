@@ -29,6 +29,7 @@ import com.myjeeva.digitalocean.pojo.Droplet;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Descriptor;
 import hudson.slaves.CloudSlaveRetentionStrategy;
+import hudson.slaves.OfflineCause;
 
 import java.util.concurrent.TimeUnit;
 
@@ -40,6 +41,14 @@ import java.util.concurrent.TimeUnit;
  * @author robert.gruendler@dubture.com
  */
 public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanComputer> {
+
+    private final int idleTerminationTime;
+    private final boolean oneShot;
+
+    public RetentionStrategy(int idleTerminationTime, boolean oneShot) {
+        this.idleTerminationTime = idleTerminationTime;
+        this.oneShot = oneShot;
+    }
 
     private static class DescriptorImpl extends Descriptor<hudson.slaves.RetentionStrategy<?>> {
         @NonNull
@@ -55,7 +64,8 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanC
 
     @Override
     protected long checkCycle() {
-        return 1; // ask Jenkins to check every 1 minute, though it might decide to check in 2 or 3 (or longer?)
+        // For -1 (ASAP termination) or one-shot mode, check every 6 seconds; otherwise every 60 seconds
+        return (idleTerminationTime < 0 || oneShot) ? 6L : 60L;
     }
 
     @Override
@@ -68,28 +78,26 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanC
 
         int idleTerminationTime = node.getIdleTerminationTime();
 
-        if (idleTerminationTime == 0) {
+        if (node.isOneShot()) {
+            // One-shot mode: terminate immediately after running first job
+            // Optimal for per-minute billing - each droplet runs exactly one job then terminates
+
+            // Immediately take the agent offline to prevent new jobs from being assigned
+            // This ensures no race condition where a second job gets assigned during termination
+            if (!digitalOceanComputer.isTemporarilyOffline()) {
+                digitalOceanComputer.setTemporarilyOffline(true,
+                    OfflineCause.create(Messages.__OneShot_OfflineCause()));
+            }
+
+            // Terminate immediately when idle (no waiting period)
+            return digitalOceanComputer.isIdle();
+        } else if (idleTerminationTime == 0) {
             return false;
-        }
-
-        if (idleTerminationTime > 0) {
+        } else if (idleTerminationTime > 0) {
             return System.currentTimeMillis() - digitalOceanComputer.getIdleStartMilliseconds() > TimeUnit.MINUTES.toMillis(idleTerminationTime);
-        } else if (idleTerminationTime < 0 && digitalOceanComputer.isIdle()) {
-            // DigitalOcean charges for the next hour at 1:30, 2:30, 3:30, etc. up time, so kill the node
-            // if it idles and is about to get charged for next hour
-            long uptimeMinutes = TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis() - digitalOceanComputer.getStartTimeMillis());
-
-            if (uptimeMinutes < 60) {
-                return false;
-            }
-
-            while (uptimeMinutes >= 60) {
-                uptimeMinutes -= 60;
-            }
-
-            return uptimeMinutes >= 25 && uptimeMinutes < 30;
+        } else {
+            // Negative values (e.g., -1) terminate immediately when idle for ASAP termination
+            return digitalOceanComputer.isIdle();
         }
-
-        return false;
     }
 }
