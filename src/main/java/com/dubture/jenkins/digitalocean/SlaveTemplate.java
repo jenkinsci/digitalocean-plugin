@@ -36,8 +36,6 @@ import java.util.SortedMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.annotation.Nonnull;
-
 import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
@@ -48,6 +46,7 @@ import com.myjeeva.digitalocean.pojo.Key;
 import com.myjeeva.digitalocean.pojo.Region;
 import com.myjeeva.digitalocean.pojo.Size;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -75,7 +74,6 @@ import jenkins.model.Jenkins;
  *
  * @author robert.gruendler@dubture.com
  */
-@SuppressWarnings("unused")
 public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final String name;
@@ -205,7 +203,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         LOGGER.log(Level.INFO, "agent limit check");
 
         int count = 0;
-        List<Node> nodes = Jenkins.getInstance().getNodes();
+        List<Node> nodes = Jenkins.get().getNodes();
         for (Node n : nodes) {
             if (DropletName.isDropletInstanceOfSlave(n.getDisplayName(), cloudName, name)) {
                 count++;
@@ -262,7 +260,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
             droplet.setImage(DigitalOcean.newImage(authToken, imageId, imageByName));
-            droplet.setKeys(Arrays.asList(new Key(sshKeyId)));
+            droplet.setKeys(Collections.singletonList(new Key(sshKeyId)));
             droplet.setInstallMonitoring(installMonitoringAgent);
             droplet.setEnablePrivateNetworking(
                     (usePrivateNetworking == null ? false : usePrivateNetworking) || (setupPrivateNetworking == null ? false : setupPrivateNetworking)
@@ -320,7 +318,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     @Extension
     public static final class DescriptorImpl extends Descriptor<SlaveTemplate> {
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "DigitalOcean Agent Template";
@@ -487,7 +485,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     @SuppressWarnings("unchecked")
     public Descriptor<SlaveTemplate> getDescriptor() {
-        return Jenkins.getInstance().getDescriptor(getClass());
+        return Jenkins.get().getDescriptor(getClass());
     }
 
     public String getName() {

@@ -65,7 +65,7 @@ import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -81,7 +81,6 @@ import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import hudson.util.XStream2;
 import jenkins.model.Jenkins;
-import net.sf.json.JSONObject;
 
 /**
  * The {@link DigitalOceanCloud} contains the main configuration values for running
@@ -712,7 +711,7 @@ public class DigitalOceanCloud extends Cloud {
             }
             return result
                 .includeEmptyValue()
-                .includeMatchingAs(Jenkins.getAuthentication(), Jenkins.get(), SSHUserPrivateKey.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
+                .includeMatchingAs(Jenkins.getAuthentication2(), Jenkins.get(), SSHUserPrivateKey.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
                 .includeMatchingAs(ACL.SYSTEM, Jenkins.get(), SSHUserPrivateKey.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
                 .includeCurrentValue(credentialsId);
         }
@@ -724,7 +723,7 @@ public class DigitalOceanCloud extends Cloud {
             }
             return result
                 .includeEmptyValue()
-                .includeMatchingAs(Jenkins.getAuthentication(), Jenkins.get(), StringCredentials.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
+                .includeMatchingAs(Jenkins.getAuthentication2(), Jenkins.get(), StringCredentials.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
                 .includeMatchingAs(ACL.SYSTEM, Jenkins.get(), StringCredentials.class, Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
                 .includeCurrentValue(credentialsId);
         }
