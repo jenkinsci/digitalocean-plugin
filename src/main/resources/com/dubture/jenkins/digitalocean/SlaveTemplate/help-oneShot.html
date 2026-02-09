@@ -24,19 +24,12 @@
   -->
 
 <div>
-    Determines how long agents can remain idle before being terminated - that
-    is the droplet being destroyed.
-
-    <P>
-    Times are expressed in minutes, and a value of 0 indicates that idle agents
-    should never be terminated.
-
-    <P>
-    As Jenkins doesn't check the idle status of agents every minute even if you
-    tell it to (it might skip checks for a few minutes), Jenkins might
-    terminate the agents a few minutes late of what you specify in this field.
-
-    <P>
-    Negative values (e.g., -1) cause the agent to terminate immediately when it becomes idle,
-    checked every 6 seconds for faster response.
+    For cost optimization with per-minute billing, you can enable one-shot mode by checking the "One-shot mode" checkbox in the Slave Template configuration. In this mode:
+    <ul>
+        <li>The agent is marked offline immediately to prevent new jobs from being assigned.</li>
+        <li>The droplet is destroyed as soon as the current job completes and the agent becomes idle.</li>
+        <li>This ensures each droplet runs exactly one job and terminates immediately afterward.</li>
+    </ul>
+    <p><strong>Note:</strong> The idle status is checked every 60 seconds, so termination may occur up to 60 seconds after the job finishes.</p>
+    <p>For faster termination when idle (without one-shot mode), set <code>idleTerminationInMinutes</code> to a negative value like -1. This terminates idle agents immediately, checked every 6 seconds.</p>
 </div>

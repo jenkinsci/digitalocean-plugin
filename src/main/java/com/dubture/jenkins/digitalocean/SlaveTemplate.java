@@ -131,6 +131,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      */
     private final String initScript;
 
+    private final boolean oneShot;
+
     private transient Set<LabelAtom> labelSet;
 
     private static final Logger LOGGER = Logger.getLogger(SlaveTemplate.class.getName());
@@ -158,7 +160,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
                          Integer sshPort, Boolean setupPrivateNetworking, String idleTerminationInMinutes, String numExecutors, String labelString,
                          Boolean labellessJobsAllowed, String instanceCap, Boolean installMonitoring, String tags,
-                         String userData, String initScript) {
+                         String userData, String initScript, Boolean oneShot) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
@@ -187,6 +189,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
         this.userData = userData;
         this.initScript = initScript;
+        this.oneShot = oneShot != null ? oneShot : false;
 
         readResolve();
     }
@@ -306,9 +309,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 idleTerminationInMinutes,
                 labels,
                 new DigitalOceanComputerLauncher(),
-                new RetentionStrategy(),
+                new RetentionStrategy(idleTerminationInMinutes, oneShot),
                 Collections.emptyList(),
-                Util.fixNull(initScript)
+                Util.fixNull(initScript),
+                oneShot
         );
     }
 
@@ -551,6 +555,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public String getInitScript() {
         return initScript;
+    }
+
+    public boolean isOneShot() {
+        return oneShot;
     }
 
     public int getSshPort() {

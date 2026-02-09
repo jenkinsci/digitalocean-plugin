@@ -8,7 +8,7 @@ jenkins:
         privateKeyCredentialId: halkeye-digitalocean-sshkey
         connectionRetryWait: 10
         instanceCap: 5
-        name: "dojenkins-happy"
+        name: "dojenkins-oneshot"
         sshKeyId: 12345
         templates:
         - idleTerminationInMinutes: 10
@@ -16,9 +16,9 @@ jenkins:
           instanceCap: 5
           labellessJobsAllowed: true
           imageId: "72401866"
-          name: "agent"
+          name: "agent-oneshot"
           numExecutors: 2
-          oneShot: false
+          oneShot: true
           regionId: "tor1"
           setupPrivateNetworking: false
           sizeId: "s-2vcpu-2gb"
