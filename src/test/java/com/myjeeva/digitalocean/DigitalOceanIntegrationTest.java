@@ -20,10 +20,6 @@
  */
 package com.myjeeva.digitalocean;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-
 import com.myjeeva.digitalocean.common.ActionType;
 import com.myjeeva.digitalocean.common.Environment;
 import com.myjeeva.digitalocean.common.LoadBalancingAlgorithm;
@@ -70,15 +66,19 @@ import com.myjeeva.digitalocean.pojo.StickySessions;
 import com.myjeeva.digitalocean.pojo.Tag;
 import com.myjeeva.digitalocean.pojo.Volume;
 import com.myjeeva.digitalocean.pojo.Volumes;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Junit Integration Test case for DigitalOcean API client wrapper methods
@@ -89,8 +89,7 @@ import org.slf4j.LoggerFactory;
  * @author Jeevanandam M. (jeeva@myjeeva.com)
  */
 // Marked as Ignore since its a Integration Test case with real values
-@Ignore
-@RunWith(JUnit4.class)
+@Disabled
 public class DigitalOceanIntegrationTest {
 
   private final Logger log = LoggerFactory.getLogger(DigitalOceanIntegrationTest.class);
@@ -1180,7 +1179,7 @@ public class DigitalOceanIntegrationTest {
   }
 
   @Test
-  public void testGetCertifacteInfo() throws DigitalOceanException, RequestUnsuccessfulException {
+  public void testGetCertificateInfo() throws DigitalOceanException, RequestUnsuccessfulException {
     Certificate certificate = apiClient.getCertificateInfo("9620c5d3-783c-4096-90f3-a2e363aa10fd");
 
     assertNotNull(certificate);

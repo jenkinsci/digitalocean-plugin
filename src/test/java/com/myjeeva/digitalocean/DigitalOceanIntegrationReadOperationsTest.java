@@ -1,19 +1,18 @@
 package com.myjeeva.digitalocean;
 
-import static org.junit.Assert.*;
-
 import com.myjeeva.digitalocean.common.ActionType;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.*;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Junit Integration Test case for DigitalOcean API client wrapper ReadOnly methods. So that it call
  *
@@ -23,8 +22,7 @@ import org.slf4j.LoggerFactory;
  * @author Jeevanandam M. (jeeva@myjeeva.com)
  */
 // Marked as Ignore since its a Integration Test case with real values
-@Ignore
-@RunWith(JUnit4.class)
+@Disabled
 public class DigitalOceanIntegrationReadOperationsTest {
 
   private final Logger log = LoggerFactory.getLogger(DigitalOceanIntegrationTest.class);
