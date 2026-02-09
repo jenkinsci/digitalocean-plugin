@@ -1943,7 +1943,7 @@ public class DigitalOceanClient implements DigitalOcean, Constants {
 
       String errorMsgFull =
           String.format(
-              "\nHTTP Status Code: %s\nError Id: %s\nError Message: %s", statusCode, id, errorMsg);
+              "%nHTTP Status Code: %s%nError Id: %s%nError Message: %s", statusCode, id, errorMsg);
       log.debug(errorMsgFull);
 
       throw new DigitalOceanException(errorMsg, id, statusCode);

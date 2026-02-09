@@ -22,6 +22,7 @@ package com.myjeeva.digitalocean.pojo;
 
 import com.google.gson.annotations.SerializedName;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import java.io.Serializable;
 
 /**
  * Represents the droplet resource a tag is attached on DigitalOcean.
@@ -29,7 +30,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
  * @author Jeevanandam M. (jeeva@myjeeva.com)
  * @since v2.5
  */
-public class TagDropletResource {
+public class TagDropletResource implements Serializable {
+  private static final long serialVersionUID = -5958690969939240483L;
 
   private int count;
 
