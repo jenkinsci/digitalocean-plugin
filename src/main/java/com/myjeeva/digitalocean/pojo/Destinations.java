@@ -24,13 +24,15 @@ package com.myjeeva.digitalocean.pojo;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
+import java.io.Serializable;
 
 /**
  * Represents Destinations for OutboundRules used by Firewalls
  *
  * @author Lucas Andrey B. (andreybleme1@gmail.com)
  */
-public class Destinations {
+public class Destinations implements Serializable {
+  private static final long serialVersionUID = -5958690969939240483L;
 
   @Expose private List<String> addresses;
 

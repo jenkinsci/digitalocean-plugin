@@ -23,6 +23,7 @@ package com.myjeeva.digitalocean.pojo;
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import java.io.Serializable;
 
 /**
  * Represents DigitalOcean Networks attributes
@@ -30,7 +31,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
  * @author Jeevanandam M. (jeeva@myjeeva.com)
  * @since v2.0
  */
-public class Networks {
+public class Networks implements Serializable {
+  private static final long serialVersionUID = -5958690969939240483L;
 
   @SerializedName("v4")
   private List<Network> version4Networks;

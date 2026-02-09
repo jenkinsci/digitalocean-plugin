@@ -23,6 +23,7 @@ package com.myjeeva.digitalocean.pojo;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
+import java.io.Serializable;
 import java.util.List;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
@@ -31,7 +32,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
  *
  * @author Lucas Andrey B. (andreybleme1@gmail.com)
  */
-public class Sources {
+public class Sources implements Serializable {
+  private static final long serialVersionUID = -5958690969939240483L;
 
   @Expose private List<String> addresses;
 

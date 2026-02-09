@@ -23,13 +23,15 @@ package com.myjeeva.digitalocean.pojo;
 
 import com.google.gson.annotations.SerializedName;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import java.io.Serializable;
 
 /**
  * Represents PendingChanges for Firewalls
  *
  * @author Lucas Andrey B. (andreybleme1@gmail.com)
  */
-public class PendingChanges {
+public class PendingChanges implements Serializable {
+  private static final long serialVersionUID = -5958690969939240483L;
 
   @SerializedName("droplet_id")
   private Integer dropletId;

@@ -24,13 +24,15 @@ package com.myjeeva.digitalocean.pojo;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import java.io.Serializable;
 
 /**
  * Represents InboundRules for Firewalls
  *
  * @author Lucas Andrey B. (andreybleme1@gmail.com)
  */
-public class InboundRules {
+public class InboundRules implements Serializable {
+  private static final long serialVersionUID = -5958690969939240483L;
 
   @Expose
   @SerializedName("protocol")

@@ -21,6 +21,7 @@
 package com.myjeeva.digitalocean.pojo;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import java.io.Serializable;
 
 /**
  * TagResource represent the set of resources a tag is attached on DigitalOcean.
@@ -28,7 +29,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
  * @author Jeevanandam M. (jeeva@myjeeva.com)
  * @since v2.5
  */
-public class TagResource {
+public class TagResource implements Serializable {
+  private static final long serialVersionUID = -5958690969939240483L;
 
   private TagDropletResource droplets;
 
