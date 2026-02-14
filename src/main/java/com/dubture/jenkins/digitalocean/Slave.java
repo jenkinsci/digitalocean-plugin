@@ -47,8 +47,9 @@ import java.util.logging.Logger;
  * The {@link com.dubture.jenkins.digitalocean.Slave} is responsible for
  *
  * <ul>
- *   <li>Creating a DigitalOcean {@link DigitalOceanComputer}</li>
- *   <li>Destroying the {@link com.myjeeva.digitalocean.pojo.Droplet} if it's not needed anymore.</li>
+ * <li>Creating a DigitalOcean {@link DigitalOceanComputer}</li>
+ * <li>Destroying the {@link com.myjeeva.digitalocean.pojo.Droplet} if it's not
+ * needed anymore.</li>
  * </ul>
  *
  * @author robert.gruendler@dubture.com
@@ -77,13 +78,15 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     private final int sshPort;
 
-    public Slave(ProvisioningActivity.Id provisioningId, String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
-                 String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
-                 String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
-                 List<? extends NodeProperty<?>> nodeProperties, String initScript)
+    public Slave(ProvisioningActivity.Id provisioningId, String cloudName, String name, String nodeDescription,
+            Integer dropletId, String privateKey,
+            String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
+            String labelString, ComputerLauncher launcher, RetentionStrategy<?> retentionStrategy,
+            List<? extends NodeProperty<?>> nodeProperties, String initScript)
             throws Descriptor.FormException, IOException {
 
-        super(name, nodeDescription, remoteFS, numExecutors, Mode.NORMAL, labelString, launcher, retentionStrategy, nodeProperties);
+        super(name, nodeDescription, remoteFS, numExecutors, Mode.NORMAL, labelString, launcher, retentionStrategy,
+                nodeProperties);
 
         this.provisioningId = provisioningId;
         this.cloudName = cloudName;
@@ -113,7 +116,9 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     /**
      * Override to create a DigitalOcean {@link DigitalOceanComputer}
-     * @return a new DigitalOceanComputer instance, instantiated with this Slave instance.
+     *
+     * @return a new DigitalOceanComputer instance, instantiated with this Slave
+     *         instance.
      */
     @Override
     public DigitalOceanComputer createComputer() {
@@ -122,6 +127,7 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     /**
      * Retrieve a handle to the associated {@link DigitalOceanCloud}
+     *
      * @return the DigitalOceanCloud associated with the specified cloudName
      */
     public DigitalOceanCloud getCloud() {
@@ -130,6 +136,7 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
 
     /**
      * Get the name of the remote admin user
+     *
      * @return the remote admin user, defaulting to "root"
      */
     public String getRemoteAdmin() {
@@ -139,10 +146,11 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
     }
 
     /**
-     * Deletes the {@link com.myjeeva.digitalocean.pojo.Droplet} when not needed anymore.
+     * Deletes the {@link com.myjeeva.digitalocean.pojo.Droplet} when not needed
+     * anymore.
      *
      * @param listener Unused
-     * @throws IOException which is thrown in case of file system errors.
+     * @throws IOException          which is thrown in case of file system errors.
      * @throws InterruptedException in case the thread itself is interrupted.
      */
     @Override

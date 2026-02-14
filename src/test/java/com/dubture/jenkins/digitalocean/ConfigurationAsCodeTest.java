@@ -42,7 +42,7 @@ class ConfigurationAsCodeTest {
 
         SlaveTemplate slaveTemplate = templates.get(0);
         assertEquals(10, slaveTemplate.getIdleTerminationInMinutes());
-        assertEquals("72401866", slaveTemplate.getImageId());
+        assertEquals("id:72401866", slaveTemplate.getImageId());
         assertNull(slaveTemplate.getInitScript());
         assertEquals(5, slaveTemplate.getInstanceCap());
         assertEquals(Collections.emptySet(), slaveTemplate.getLabelSet());
@@ -86,7 +86,7 @@ class ConfigurationAsCodeTest {
 
         SlaveTemplate slaveTemplate = templates.get(0);
         assertEquals(10, slaveTemplate.getIdleTerminationInMinutes());
-        assertEquals("docker-20-04", slaveTemplate.getImageId());
+        assertEquals("slug:docker-20-04", slaveTemplate.getImageId());
         assertNull(slaveTemplate.getInitScript());
         assertEquals(2, slaveTemplate.getInstanceCap());
         assertEquals(Collections.emptySet(), slaveTemplate.getLabelSet());
@@ -101,5 +101,26 @@ class ConfigurationAsCodeTest {
         assertNull(slaveTemplate.getUserData());
         assertEquals("root", slaveTemplate.getUsername());
         assertEquals("/jenkins/", slaveTemplate.getWorkspacePath());
+    }
+
+    @Test
+    @ConfiguredWithCode("post-droplet-name.yml")
+    void testHandleDropletIdSlugName(JenkinsConfiguredWithCodeRule j) throws Exception {
+        ConfiguratorRegistry registry = ConfiguratorRegistry.get();
+        ConfigurationContext context = new ConfigurationContext(registry);
+        String exported = toYamlString(getJenkinsRoot(context).get("clouds"));
+        final DigitalOceanCloud doCloud = (DigitalOceanCloud) Jenkins.get().getCloud("post-droplet-name");
+        assertNotNull(doCloud);
+
+        final List<SlaveTemplate> templates = doCloud.getTemplates();
+
+        assertEquals("id:72401866", templates.get(0).getImageId());
+        assertEquals(DigitalOcean.ImageBy.ID, templates.get(0).getImageBy());
+
+        assertEquals("slug:docker-20-04", templates.get(1).getImageId());
+        assertEquals(DigitalOcean.ImageBy.SLUG, templates.get(1).getImageBy());
+
+        assertEquals("name:this is a droplet name", templates.get(2).getImageId());
+        assertEquals(DigitalOcean.ImageBy.NAME, templates.get(2).getImageBy());
     }
 }

@@ -3,7 +3,6 @@
   ~
   ~ Copyright (c) 2014 robert.gruendler@dubture.com
   ~               2016 Maxim Biro <nurupo.contributions@gmail.com>
-  ~               2021 Harald Sitter <sitter@kde.org>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -32,13 +31,26 @@
         <f:textbox/>
     </f:entry>
 
-    <f:entry title="Resolve user image by name rather than ID or slug" field="imageByName">
-        <f:checkbox/>
+    <f:entry title="Image" field="imageId">
+        <div style="display: flex; gap: 10px;">
+            <div style="flex: 1">
+                <f:enum field="imageBy" default="SLUG">${it.label}</f:enum>
+            </div>
+            <div style="flex: 3">
+                <f:select field="imageId" />
+            </div>
+        </div>
     </f:entry>
 
-    <f:entry title="Image" field="imageId">
-        <f:select />
-    </f:entry>
+    <f:advanced title="${%Filter Image List}">
+        <f:entry field="imageFilterPrivate" title="${%Image Private}">
+            <f:enum>${it.label}</f:enum>
+        </f:entry>
+
+        <f:entry field="imageFilterType" title="${%Image Type}">
+            <f:enum>${it.label}</f:enum>
+        </f:entry>
+    </f:advanced>
 
     <f:entry title="Size" field="sizeId">
         <f:select />
