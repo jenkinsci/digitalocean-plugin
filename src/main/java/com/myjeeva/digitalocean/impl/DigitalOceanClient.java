@@ -1775,7 +1775,7 @@ public class DigitalOceanClient implements DigitalOcean, Constants {
   // Private methods
   //
 
-  private ApiResponse perform(ApiRequest request)
+  public ApiResponse perform(ApiRequest request)
       throws DigitalOceanException, RequestUnsuccessfulException {
 
     URI uri = createUri(request);

@@ -32,8 +32,25 @@
     </f:entry>
 
     <f:entry title="Image" field="imageId">
-        <f:select />
+        <div style="display: flex; gap: 10px;">
+            <div style="flex: 1">
+                <f:enum field="imageBy" default="SLUG">${it.label}</f:enum>
+            </div>
+            <div style="flex: 3">
+                <f:select field="imageId" />
+            </div>
+        </div>
     </f:entry>
+
+    <f:advanced title="${%Filter Image List}">
+        <f:entry field="imageFilterPrivate" title="${%Image Private}">
+            <f:enum>${it.label}</f:enum>
+        </f:entry>
+
+        <f:entry field="imageFilterType" title="${%Image Type}">
+            <f:enum>${it.label}</f:enum>
+        </f:entry>
+    </f:advanced>
 
     <f:entry title="Size" field="sizeId">
         <f:select />
@@ -54,7 +71,7 @@
     <f:entry title="SSH port" field="sshPort">
         <f:textbox default="22" />
     </f:entry>
-    
+
     <f:entry title="Setup Private Networking" field="setupPrivateNetworking">
         <f:checkbox/>
     </f:entry>

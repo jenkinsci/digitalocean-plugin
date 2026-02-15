@@ -1,0 +1,54 @@
+---
+configuration-as-code:
+  deprecated: warn
+jenkins:
+  clouds:
+    - digitalOcean:
+        authTokenCredentialId: halkeye-digitalocean
+        privateKeyCredentialId: halkeye-digitalocean-sshkey
+        connectionRetryWait: 10
+        instanceCap: 5
+        name: "post-droplet-name"
+        sshKeyId: 12345
+        templates:
+        - idleTerminationInMinutes: 10
+          installMonitoring: false
+          instanceCap: 5
+          labellessJobsAllowed: true
+          imageId: "id:72401866"
+          name: "idme"
+          numExecutors: 2
+          regionId: "tor1"
+          setupPrivateNetworking: false
+          sizeId: "s-2vcpu-2gb"
+          sshPort: 22
+          username: "root"
+          workspacePath: "/jenkins/"
+        - idleTerminationInMinutes: 10
+          installMonitoring: false
+          instanceCap: 5
+          labellessJobsAllowed: true
+          imageId: "slug:docker-20-04"
+          name: "sluglife"
+          numExecutors: 2
+          regionId: "tor1"
+          setupPrivateNetworking: false
+          sizeId: "s-2vcpu-2gb"
+          sshPort: 22
+          username: "root"
+          workspacePath: "/jenkins/"
+        - idleTerminationInMinutes: 10
+          installMonitoring: false
+          instanceCap: 5
+          labellessJobsAllowed: true
+          imageId: "name:this is a droplet name"
+          name: "namy"
+          numExecutors: 2
+          regionId: "tor1"
+          setupPrivateNetworking: false
+          sizeId: "s-2vcpu-2gb"
+          sshPort: 22
+          username: "root"
+          workspacePath: "/jenkins/"
+        timeoutMinutes: 5
+        usePrivateNetworking: false

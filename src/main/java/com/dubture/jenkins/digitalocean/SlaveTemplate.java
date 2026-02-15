@@ -36,6 +36,7 @@ import java.util.SortedMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.dubture.jenkins.digitalocean.DigitalOcean.ImageBy;
 import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
@@ -50,6 +51,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.cloudstats.ProvisioningActivity;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 import hudson.Extension;
@@ -65,12 +67,16 @@ import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 
 /**
- * A {@link SlaveTemplate} represents the configuration values for creating a new agent via a DigitalOcean droplet.
+ * A {@link SlaveTemplate} represents the configuration values for creating a
+ * new agent via a DigitalOcean droplet.
  *
- * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
+ * <p>
+ * Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * <p>The {@link SlaveTemplate#provision} method
- * is the main entry point to create a new droplet via the DigitalOcean API when a new agent needs to be provisioned.
+ * <p>
+ * The {@link SlaveTemplate#provision} method
+ * is the main entry point to create a new droplet via the DigitalOcean API when
+ * a new agent needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
  */
@@ -94,7 +100,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     /**
      * The Image to be used for the droplet.
      */
-    private final String imageId;
+    private String imageId;
 
     /**
      * The specified droplet sizeId.
@@ -126,7 +132,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     private final String userData;
 
     /**
-     * Setup script for preparing the new agent. Differs from userData in that Jenkins runs this script,
+     * Setup script for preparing the new agent. Differs from userData in that
+     * Jenkins runs this script,
      * as opposed to the DigitalOcean provisioning process.
      */
     private final String initScript;
@@ -135,33 +142,75 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private static final Logger LOGGER = Logger.getLogger(SlaveTemplate.class.getName());
 
+    private ImageFilters.ImageFilterPrivate imageFilterPrivate;
+
+    public ImageFilters.ImageFilterPrivate getImageFilterPrivate() {
+        return imageFilterPrivate;
+    }
+
+    @DataBoundSetter
+    public void setImageFilterPrivate(ImageFilters.ImageFilterPrivate imageFilterPrivate) {
+        this.imageFilterPrivate = imageFilterPrivate;
+    }
+
+    private ImageFilters.ImageFilterType imageFilterType;
+
+    public ImageFilters.ImageFilterType getImageFilterType() {
+        return imageFilterType;
+    }
+
+    @DataBoundSetter
+    public void setImageFilterType(ImageFilters.ImageFilterType imageFilterType) {
+        this.imageFilterType = imageFilterType;
+    }
+
+    public ImageBy getImageBy() {
+        if (imageId.trim().isEmpty())
+            return DigitalOcean.ImageBy.SLUG;
+        if (imageId.startsWith("id:")) {
+            return DigitalOcean.ImageBy.ID;
+        } else if (imageId.startsWith("slug:")) {
+            return DigitalOcean.ImageBy.SLUG;
+        } else if (imageId.startsWith("name:")) {
+            return DigitalOcean.ImageBy.NAME;
+        }
+        return DigitalOcean.ImageBy.SLUG;
+    }
+
     /**
      * Data is injected from the global Jenkins configuration via jelly.
-     * @param name image name
-     * @param imageId an image slug e.g. "debian-8-x64", or an integer e.g. of a backup, such as "12345678"
-     * @param sizeId the image size e.g. "512mb" or "1gb"
-     * @param regionId the region e.g. "nyc1"
-     * @param username username to login
-     * @param workspacePath path to the workspace
-     * @param sshPort ssh port to be used
+     *
+     * @param name                     image name
+     * @param imageId                  an image slug e.g. "debian-8-x64", or an
+     *                                 integer e.g. of a backup, such as "12345678"
+     * @param sizeId                   the image size e.g. "512mb" or "1gb"
+     * @param regionId                 the region e.g. "nyc1"
+     * @param username                 username to login
+     * @param workspacePath            path to the workspace
+     * @param sshPort                  ssh port to be used
      * @param idleTerminationInMinutes how long to wait before destroying a agent
-     * @param numExecutors the number of executors that this agent supports
-     * @param labelString the label for this agent
-     * @param labellessJobsAllowed if jobs without a label are allowed
-     * @param instanceCap if the number of created instances is capped
-     * @param installMonitoring whether expanded monitoring tool agent should be installed
-     * @param tags the droplet tags
-     * @param userData user data for DigitalOcean to apply when building the agent
-     * @param initScript setup script to configure the agent
+     * @param numExecutors             the number of executors that this agent
+     *                                 supports
+     * @param labelString              the label for this agent
+     * @param labellessJobsAllowed     if jobs without a label are allowed
+     * @param instanceCap              if the number of created instances is capped
+     * @param installMonitoring        whether expanded monitoring tool agent should
+     *                                 be installed
+     * @param tags                     the droplet tags
+     * @param userData                 user data for DigitalOcean to apply when
+     *                                 building the agent
+     * @param initScript               setup script to configure the agent
      */
     @DataBoundConstructor
-    public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
-                         Integer sshPort, Boolean setupPrivateNetworking, String idleTerminationInMinutes, String numExecutors, String labelString,
-                         Boolean labellessJobsAllowed, String instanceCap, Boolean installMonitoring, String tags,
-                         String userData, String initScript) {
+    public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username,
+            String workspacePath,
+            Integer sshPort, Boolean setupPrivateNetworking, String idleTerminationInMinutes, String numExecutors,
+            String labelString,
+            Boolean labellessJobsAllowed, String instanceCap, Boolean installMonitoring, String tags,
+            String userData, String initScript) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
-                new Object[] { imageId, sizeId, regionId});
+                new Object[] { imageId, sizeId, regionId });
 
         this.name = name;
         this.imageId = imageId;
@@ -171,7 +220,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.workspacePath = workspacePath;
         this.sshPort = sshPort;
         if (setupPrivateNetworking == null) {
-            LOGGER.log(Level.WARNING, "Private networking configuration not set for Slavetemplate with imageid = {0}", new Object[]{imageId});
+            LOGGER.log(Level.WARNING, "Private networking configuration not set for Slavetemplate with imageid = {0}",
+                    new Object[] { imageId });
             this.setupPrivateNetworking = false;
         } else {
             this.setupPrivateNetworking = setupPrivateNetworking;
@@ -190,7 +240,6 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
         readResolve();
     }
-
 
     public boolean isInstanceCapReachedLocal(String cloudName) {
         if (instanceCap == 0) {
@@ -224,20 +273,21 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     public Slave provision(ProvisioningActivity.Id provisioningId,
-                           String dropletName,
-                           String cloudName,
-                           String authToken,
-                           String privateKey,
-                           Integer sshKeyId,
-                           List<Droplet> droplets,
-                           Boolean usePrivateNetworking)
+            String dropletName,
+            String cloudName,
+            String authToken,
+            String privateKey,
+            Integer sshKeyId,
+            List<Droplet> droplets,
+            Boolean usePrivateNetworking)
             throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
 
         LOGGER.log(Level.INFO, "Provisioning agent...");
 
         try {
-            LOGGER.log(Level.INFO, "Starting to provision digital ocean droplet using image: {0}, sizeId = {1}, regionId = {2}",
-                    new Object[]{imageId, sizeId, regionId});
+            LOGGER.log(Level.INFO,
+                    "Starting to provision digital ocean droplet using image: {0}, sizeId = {1}, regionId = {2}",
+                    new Object[] { imageId, sizeId, regionId });
 
             if (isInstanceCapReachedLocal(cloudName) || isInstanceCapReachedRemote(droplets, cloudName)) {
                 String msg = String.format("instance cap reached for %s in %s", dropletName, cloudName);
@@ -246,7 +296,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             }
 
             if (usePrivateNetworking == null) {
-                LOGGER.log(Level.WARNING, "Private networking usage not set for Slavetemplate with imageid = {0}", new Object[]{imageId});
+                LOGGER.log(Level.WARNING, "Private networking usage not set for Slavetemplate with imageid = {0}",
+                        new Object[] { imageId });
                 usePrivateNetworking = false;
             }
 
@@ -255,12 +306,20 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setName(dropletName);
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
-            droplet.setImage(DigitalOcean.newImage(imageId));
+            if (imageId.startsWith("id:")) {
+                droplet.setImage(new Image(imageId.substring("id:".length())));
+            } else if (imageId.startsWith("slug:")) {
+                droplet.setImage(new Image(imageId.substring("slug:".length())));
+            } else if (imageId.startsWith("name:")) {
+                String imageName = imageId.substring("name:".length());
+                ImageFilters imageFilters = new ImageFilters(imageFilterPrivate, imageFilterType, "");
+                droplet.setImage(DigitalOcean.getMatchingNamedImage(authToken, imageFilters, imageName));
+            }
             droplet.setKeys(Collections.singletonList(new Key(sshKeyId)));
             droplet.setInstallMonitoring(installMonitoringAgent);
             droplet.setEnablePrivateNetworking(
-                    (usePrivateNetworking == null ? false : usePrivateNetworking) || (setupPrivateNetworking == null ? false : setupPrivateNetworking)
-            );
+                    (usePrivateNetworking == null ? false : usePrivateNetworking)
+                            || (setupPrivateNetworking == null ? false : setupPrivateNetworking));
             droplet.setTags(Arrays.asList(Util.tokenize(Util.fixNull(tags))));
 
             if (!(userData == null || userData.trim().isEmpty())) {
@@ -273,24 +332,29 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             Droplet createdDroplet = apiClient.createDroplet(droplet);
 
             return newSlave(provisioningId, cloudName, createdDroplet, privateKey);
-        } catch (RuntimeException e) {
+        } catch (
+
+        RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            String msg = String.format("Unexpected error raised during provisioning of %s:%n%s", dropletName, e.getMessage());
-            LOGGER.log(Level.WARNING,  msg, e);
+            String msg = String.format("Unexpected error raised during provisioning of %s:%n%s", dropletName,
+                    e.getMessage());
+            LOGGER.log(Level.WARNING, msg, e);
             throw new AssertionError(msg);
         }
     }
 
     /**
      * Create a new {@link Slave} from the given {@link Droplet}
-     * @param droplet the droplet being created
+     *
+     * @param droplet    the droplet being created
      * @param privateKey the RSA private key being used
      * @return the provisioned {@link Slave}
      * @throws IOException
      * @throws Descriptor.FormException
      */
-    private Slave newSlave(ProvisioningActivity.Id provisioningId, String cloudName, Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
+    private Slave newSlave(ProvisioningActivity.Id provisioningId, String cloudName, Droplet droplet, String privateKey)
+            throws IOException, Descriptor.FormException {
         LOGGER.log(Level.INFO, "Creating new agent...");
         return new Slave(
                 provisioningId,
@@ -308,8 +372,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 new DigitalOceanComputerLauncher(),
                 new RetentionStrategy(),
                 Collections.emptyList(),
-                Util.fixNull(initScript)
-        );
+                Util.fixNull(initScript));
     }
 
     @Extension
@@ -395,7 +458,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
                 return FormValidation.error("Must be set");
             } else {
                 try {
-                    //noinspection ResultOfMethodCallIgnored
+                    // noinspection ResultOfMethodCallIgnored
                     Integer.parseInt(idleTerminationInMinutes);
                 } catch (Exception e) {
                     return FormValidation.error("Must be a number");
@@ -424,11 +487,12 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
-        public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId) throws Exception {
+        public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId)
+                throws Exception {
             ListBoxModel model = new ListBoxModel();
             String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             if (StringUtils.isBlank(authToken)) {
-              return model;
+                return model;
             }
 
             List<Size> availableSizes = DigitalOcean.getAvailableSizes(authToken);
@@ -440,37 +504,39 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return model;
         }
 
-        public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId) throws Exception {
-
+        public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId,
+                @QueryParameter ImageFilters.ImageFilterType imageFilterType,
+                @QueryParameter ImageFilters.ImageFilterPrivate imageFilterPrivate,
+                @QueryParameter DigitalOcean.ImageBy imageBy)
+                throws Exception {
             ListBoxModel model = new ListBoxModel();
-            String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
+            final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             if (StringUtils.isBlank(authToken)) {
-              return model;
+                return model;
             }
 
-            SortedMap<String, Image> availableImages = DigitalOcean.getAvailableImages(DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId));
+            ImageFilters imageFilters = new ImageFilters(imageFilterPrivate, imageFilterType, "");
+
+            final SortedMap<String, Image> availableImages = DigitalOcean.getAvailableImages(authToken, imageFilters);
 
             for (Map.Entry<String, Image> entry : availableImages.entrySet()) {
                 final Image image = entry.getValue();
-
-                // For non-snapshots, use the image ID instead of the slug (which isn't available anyway)
-                // so that we can build images based upon backups.
-                final String value = DigitalOcean.getImageIdentifier(image);
-
-                model.add(entry.getKey(), value);
+                model.add(entry.getKey(), DigitalOcean.getImageIdentifier(image, imageBy));
             }
 
             return model;
         }
 
-        public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId) throws Exception {
+        public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId)
+                throws Exception {
             ListBoxModel model = new ListBoxModel();
             String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             if (StringUtils.isBlank(authToken)) {
-              return model;
+                return model;
             }
 
-            List<Region> availableSizes = DigitalOcean.getAvailableRegions(DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId));
+            List<Region> availableSizes = DigitalOcean
+                    .getAvailableRegions(DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId));
 
             for (Region region : availableSizes) {
                 model.add(region.getName(), region.getSlug());
@@ -557,20 +623,30 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return sshPort;
     }
 
-    public boolean isSetupPrivateNetworking() { return setupPrivateNetworking; }
+    public boolean isSetupPrivateNetworking() {
+        return setupPrivateNetworking;
+    }
 
     private static int tryParseInteger(final String integerString, final int defaultValue) {
         try {
             return Integer.parseInt(integerString);
-        }
-        catch (NumberFormatException e) {
-            LOGGER.log(Level.INFO, "Invalid integer {0}, defaulting to {1}", new Object[] {integerString, defaultValue});
+        } catch (NumberFormatException e) {
+            LOGGER.log(Level.INFO, "Invalid integer {0}, defaulting to {1}",
+                    new Object[] { integerString, defaultValue });
             return defaultValue;
         }
     }
 
     protected Object readResolve() {
         labelSet = Label.parse(labels);
+        if (!imageId.startsWith("id:") && !imageId.startsWith("name:") && !imageId.startsWith("slug:")) {
+            try {
+                Integer.parseInt(imageId);
+                imageId = "id:" + imageId;
+            } catch (NumberFormatException e) {
+                imageId = "slug:" + imageId;
+            }
+        }
         return this;
     }
 }

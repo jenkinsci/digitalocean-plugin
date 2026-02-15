@@ -25,21 +25,26 @@
 
 package com.dubture.jenkins.digitalocean;
 
+import java.text.MessageFormat;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.myjeeva.digitalocean.common.ApiAction;
 import com.myjeeva.digitalocean.common.ImageType;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
+import com.myjeeva.digitalocean.impl.ApiRequest;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.*;
 
 import static com.google.common.collect.Lists.newArrayList;
 
 /**
- * Various utility methods that make it easier to obtain full lists of properties from Digital Ocean. Some API
- * calls require page number, since the results are paginated, so these utilities will exhaust all the pages and
+ * Various utility methods that make it easier to obtain full lists of
+ * properties from Digital Ocean. Some API
+ * calls require page number, since the results are paginated, so these
+ * utilities will exhaust all the pages and
  * return a single result set.
  *
  * @author Rory Hunter (rory.hunter@blackpepper.co.uk)
@@ -54,6 +59,7 @@ public final class DigitalOcean {
 
     /**
      * Fetches all available droplet sizes.
+     *
      * @param authToken the API authorisation token to use
      * @return a list of {@link Size}s, sorted by their memory capacity
      * @throws DigitalOceanException
@@ -70,35 +76,58 @@ public final class DigitalOcean {
             page += 1;
             sizes = client.getAvailableSizes(page);
             availableSizes.addAll(sizes.getSizes());
-        }
-        while (sizes.getMeta().getTotal() > availableSizes.size());
+        } while (sizes.getMeta().getTotal() > availableSizes.size());
 
         availableSizes.sort(Comparator.comparing(Size::getMemorySizeInMb));
 
         return availableSizes;
     }
 
+    public static enum ImageBy {
+        ID("By Id"),
+        SLUG("By Slug"),
+        NAME("By Name");
+
+        private ImageBy(String label) {
+            this.label = label;
+        }
+
+        final private String label;
+
+        public String getLabel() {
+            return label;
+        }
+    }
+
     /**
-     * Fetches all available images. Unlike the other getAvailable* methods, this returns a map because the values
-     * are sorted by a key composed of their OS distribution and version, which is useful for display purposes. Backup
+     * Fetches all available images. Unlike the other getAvailable* methods, this
+     * returns a map because the values
+     * are sorted by a key composed of their OS distribution and version, which is
+     * useful for display purposes. Backup
      * images are prefixed with "(Backup) " to easily differentiate them.
      *
      * @param authToken the API authorisation token to use
-     * @return a sorted map of {@link Image}s, key on their OS distribution and version
+     * @return a sorted map of {@link Image}s, key on their OS distribution and
+     *         version
      * @throws DigitalOceanException
      * @throws RequestUnsuccessfulException
      */
-    static SortedMap<String,Image> getAvailableImages(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+    static SortedMap<String, Image> getAvailableImages(String authToken, ImageFilters filters)
+            throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
-        SortedMap<String,Image> availableImages = new TreeMap<>(ignoringCase());
+        SortedMap<String, Image> availableImages = new TreeMap<>(ignoringCase());
 
-        Images images;
+        Images images = null;
         int page = 0;
+
+        Map<String, String> queryParams = filters.getQueryParameters();
 
         do {
             page += 1;
-            images = client.getAvailableImages(page, Integer.MAX_VALUE);
+            images = (Images) client
+                    .perform(new ApiRequest(ApiAction.AVAILABLE_IMAGES, page, queryParams, Integer.MAX_VALUE))
+                    .getData();
             for (Image image : images.getImages()) {
                 String prefix = getPrefix(image);
                 final String name = prefix + image.getDistribution() + " " + image.getName();
@@ -106,51 +135,68 @@ public final class DigitalOcean {
                 int count = 2;
                 while (availableImages.containsKey(numberedName)) {
                     numberedName = name + " (" + count + ")";
-                    count ++;
+                    count++;
                 }
                 availableImages.put(numberedName, image);
             }
-        }
-        while (images.getMeta().getTotal() > availableImages.size());
+        } while (images.getMeta().getTotal() > availableImages.size());
 
         return availableImages;
     }
 
-	private static String getPrefix(Image image) {
+    private static String getPrefix(Image image) {
 
-		if (image.getType() == ImageType.BACKUP) {
-			return "(Backup) ";
-		}
+        if (image.getType() == ImageType.BACKUP) {
+            return "(Backup) ";
+        }
 
-		if (image.getType() == ImageType.SNAPSHOT && image.getSlug() == null && !image.isAvailablePublic()) {
-			return "(Snapshot) ";
-		}
+        if (image.getType() == ImageType.SNAPSHOT && image.getSlug() == null && !image.isAvailablePublic()) {
+            return "(Snapshot) ";
+        }
 
-		return "";
-	}
+        if (image.getType() == ImageType.CUSTOM) {
+            return "(Custom Image) ";
+        }
 
-	/**
-	 * Returns the appropriate identifier for creating droplets from this image.
-	 * For non-snapshots, use the image ID instead of the slug (which isn't available
-	 * anyway) so that we can build images based upon backups.
-	 *
-	 * @param image
-	 * @return either a "slug" identifier e.g. "ubuntu-15-04-x64", or an integer ID.
-	 */
-	static String getImageIdentifier(Image image) {
-		return image.getType() == ImageType.SNAPSHOT && image.getSlug() != null
-			? image.getSlug()
-			: image.getId().toString();
-	}
+        return "";
+    }
 
-	/**
+    /**
+     * Returns the appropriate identifier for creating droplets from this image.
+     * For non-snapshots, use the image ID instead of the slug (which isn't
+     * available
+     * anyway) so that we can build images based upon backups.
+     *
+     * @param image
+     * @return either a "slug" identifier e.g. "ubuntu-15-04-x64", or an integer ID.
+     */
+    static String getImageIdentifier(Image image, ImageBy imageBy) {
+
+        switch (imageBy) {
+            case ID:
+                return "id:" + image.getId();
+            case NAME:
+                return "name:" + image.getName();
+            default:
+            case SLUG:
+                if (image.getType() != ImageType.SNAPSHOT || !image.getSlug().trim().isEmpty()) {
+                    return "slug:" + image.getSlug();
+                } else {
+                    return "id:" + image.getId();
+                }
+        }
+    }
+
+    /**
      * Fetches all regions that are flagged as available.
+     *
      * @param authToken the API authorisation token to use
      * @return a list of {@link Region}s, sorted by name.
      * @throws DigitalOceanException
      * @throws RequestUnsuccessfulException
      */
-    static List<Region> getAvailableRegions(String authToken) throws DigitalOceanException, RequestUnsuccessfulException {
+    static List<Region> getAvailableRegions(String authToken)
+            throws DigitalOceanException, RequestUnsuccessfulException {
         DigitalOceanClient client = new DigitalOceanClient(authToken);
 
         List<Region> availableRegions = new ArrayList<>();
@@ -161,8 +207,7 @@ public final class DigitalOcean {
             page += 1;
             regions = client.getAvailableRegions(page);
             availableRegions.addAll(regions.getRegions());
-        }
-        while (regions.getMeta().getTotal() > availableRegions.size());
+        } while (regions.getMeta().getTotal() > availableRegions.size());
 
         availableRegions.sort(Comparator.comparing(Region::getName));
 
@@ -172,14 +217,16 @@ public final class DigitalOcean {
     /**
      * Constructs a label for the given {@link Size}. Examples:
      * <ul>
-     *     <li>"512mb / 20gb"</li>
-     *     <li>"1gb / 30gb"</li>
+     * <li>"512mb / 20gb"</li>
+     * <li>"1gb / 30gb"</li>
      * </ul>
+     *
      * @param size the size to use
      * @return a label with memory and disk size
      */
     static String buildSizeLabel(final Size size) {
-        /* It so happens that what we build here is the same as size.getSlug(),
+        /*
+         * It so happens that what we build here is the same as size.getSlug(),
          * but I don't want to rely on that in case it changes.
          */
         int memory = size.getMemorySizeInMb();
@@ -206,8 +253,7 @@ public final class DigitalOcean {
                 size.getVirutalCpuCount(),
                 size.getDiskSize(),
                 size.getTransfer(),
-                type
-        );
+                type);
     }
 
     static List<Key> getAvailableKeys(String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
@@ -222,15 +268,16 @@ public final class DigitalOcean {
             page += 1;
             keys = client.getAvailableKeys(page);
             availableKeys.addAll(keys.getKeys());
-        }
-        while (keys.getMeta().getTotal() > availableKeys.size());
+        } while (keys.getMeta().getTotal() > availableKeys.size());
 
         return availableKeys;
     }
 
     /**
-     * Fetches a list of all available droplets. The implementation will fetch all pages and return a single list
+     * Fetches a list of all available droplets. The implementation will fetch all
+     * pages and return a single list
      * of droplets.
+     *
      * @return a list of all available droplets.
      * @throws DigitalOceanException
      * @throws RequestUnsuccessfulException
@@ -246,28 +293,49 @@ public final class DigitalOcean {
             page += 1;
             droplets = apiClient.getAvailableDroplets(page, Integer.MAX_VALUE);
             availableDroplets.addAll(droplets.getDroplets());
-        }
-        while (droplets.getMeta().getTotal() > availableDroplets.size());
+        } while (droplets.getMeta().getTotal() > availableDroplets.size());
 
         return availableDroplets;
     }
 
+    static Image getMatchingNamedImage(String authToken, ImageFilters filters, String imageName)
+            throws DigitalOceanException, RequestUnsuccessfulException {
+        List<Image> matchingImages = new ArrayList<Image>();
+
+        final SortedMap<String, Image> images = getAvailableImages(authToken, filters);
+        for (Image image : images.values()) {
+            if (imageName.equals(image.getName())) {
+                matchingImages.add(image);
+            }
+        }
+
+        Collections.sort(matchingImages, new Comparator<Image>() {
+            @Override
+            public int compare(Image left, Image right) {
+                return left.getCreatedDate().compareTo(right.getCreatedDate());
+            }
+        });
+
+        if (matchingImages.size() < 1) {
+            throw new RuntimeException(MessageFormat.format("Failed to resolve image name '{0}'", imageName));
+        }
+
+        return matchingImages.get(0);
+    }
+
     /**
      * Fetches information for the specified droplet.
+     *
      * @param authToken the API authentication token to use
      * @param dropletId the ID of the droplet to query
      * @return information for the specified droplet
      * @throws DigitalOceanException
      * @throws RequestUnsuccessfulException
      */
-    static Droplet getDroplet(String authToken, Integer dropletId) throws DigitalOceanException, RequestUnsuccessfulException {
+    static Droplet getDroplet(String authToken, Integer dropletId)
+            throws DigitalOceanException, RequestUnsuccessfulException {
         LOGGER.log(Level.INFO, "Fetching droplet " + dropletId);
         return new DigitalOceanClient(authToken).getDropletInfo(dropletId);
-    }
-
-    static Image newImage(String idOrSlug) {
-        Image image = new Image(idOrSlug);
-        return image;
     }
 
     private static class DestroyInfo {
@@ -298,7 +366,8 @@ public final class DigitalOcean {
                 while (it.hasNext()) {
                     DestroyInfo di = it.next();
 
-                    // the list should be sorted by di.authToken to prevent unnecessary DigitalOceanClient recreation
+                    // the list should be sorted by di.authToken to prevent unnecessary
+                    // DigitalOceanClient recreation
                     if (!di.authToken.equals(previousAuthToken)) {
                         previousAuthToken = di.authToken;
                         client = new DigitalOceanClient(di.authToken);
@@ -331,7 +400,8 @@ public final class DigitalOcean {
 
                             if (!found) {
                                 // such droplet doesn't exist, stop trying to destroy it you dummy
-                                LOGGER.info("Droplet " + di.dropletId + " doesn't even exist, stop trying to destroy it you dummy!");
+                                LOGGER.info("Droplet " + di.dropletId
+                                        + " doesn't even exist, stop trying to destroy it you dummy!");
                                 it.remove();
                                 continue;
                             }
