@@ -179,7 +179,7 @@ public final class DigitalOcean {
                 return "name:" + image.getName();
             default:
             case SLUG:
-                if (image.getType() != ImageType.SNAPSHOT || image.getSlug() != "") {
+                if (image.getType() != ImageType.SNAPSHOT || !image.getSlug().trim().isEmpty()) {
                     return "slug:" + image.getSlug();
                 } else {
                     return "id:" + image.getId();

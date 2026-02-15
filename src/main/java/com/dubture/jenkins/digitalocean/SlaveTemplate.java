@@ -165,7 +165,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     public ImageBy getImageBy() {
-        if (imageId == "")
+        if (imageId.trim().isEmpty())
             return DigitalOcean.ImageBy.SLUG;
         if (imageId.startsWith("id:")) {
             return DigitalOcean.ImageBy.ID;
