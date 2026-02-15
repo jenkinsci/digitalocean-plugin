@@ -65,6 +65,7 @@ import hudson.model.labels.LabelAtom;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
+import org.kohsuke.stapler.interceptor.RequirePOST;
 
 /**
  * A {@link SlaveTemplate} represents the configuration values for creating a
@@ -473,23 +474,28 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         }
 
         public FormValidation doCheckSizeId(@RelativePath("..") @QueryParameter String authTokenCredentialId) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
         public FormValidation doCheckImageId(@RelativePath("..") @QueryParameter String authTokenCredentialId) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
         public FormValidation doCheckRegionId(@RelativePath("..") @QueryParameter String authTokenCredentialId) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             return DigitalOceanCloud.DescriptorImpl.doCheckAuthToken(authToken);
         }
 
+        @RequirePOST
         public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId)
                 throws Exception {
             ListBoxModel model = new ListBoxModel();
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             if (StringUtils.isBlank(authToken)) {
                 return model;
@@ -504,12 +510,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return model;
         }
 
+        @RequirePOST
         public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId,
                 @QueryParameter ImageFilters.ImageFilterType imageFilterType,
                 @QueryParameter ImageFilters.ImageFilterPrivate imageFilterPrivate,
                 @QueryParameter DigitalOcean.ImageBy imageBy)
                 throws Exception {
             ListBoxModel model = new ListBoxModel();
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             final String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             if (StringUtils.isBlank(authToken)) {
                 return model;
@@ -527,16 +535,17 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return model;
         }
 
+        @RequirePOST
         public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authTokenCredentialId)
                 throws Exception {
             ListBoxModel model = new ListBoxModel();
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             String authToken = DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId);
             if (StringUtils.isBlank(authToken)) {
                 return model;
             }
 
-            List<Region> availableSizes = DigitalOcean
-                    .getAvailableRegions(DigitalOceanCloud.getAuthTokenFromCredentialId(authTokenCredentialId));
+            List<Region> availableSizes = DigitalOcean.getAvailableRegions(authToken);
 
             for (Region region : availableSizes) {
                 model.add(region.getName(), region.getSlug());

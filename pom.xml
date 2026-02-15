@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>5.22</version>
+        <version>5.26</version>
         <relativePath />
     </parent>
     <groupId>com.dubture.jenkins</groupId>
@@ -75,12 +75,12 @@
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.13.1</version>
+            <version>2.13.2</version>
         </dependency>
         <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
-            <version>2.41.0</version>
+            <version>2.42.0</version>
         </dependency>
         <!-- Test dependencies -->
         <dependency>
@@ -101,7 +101,7 @@
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
-			<version>3.10</version>
+			<version>3.19.0</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
@@ -121,7 +121,7 @@
             <dependency>
               <groupId>io.jenkins.tools.bom</groupId>
               <artifactId>bom-${jenkins.baseline}.x</artifactId>
-              <version>5085.v05cc65a_936d3</version>
+              <version>5473.vb_9533d9e5d88</version>
               <scope>import</scope>
               <type>pom</type>
             </dependency>

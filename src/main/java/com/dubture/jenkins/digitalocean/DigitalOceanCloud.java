@@ -734,6 +734,8 @@ public class DigitalOceanCloud extends Cloud {
                 return model;
             }
 
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+
             List<Key> availableSizes = DigitalOcean
                     .getAvailableKeys(getAuthTokenFromCredentialId(authTokenCredentialId));
             for (Key key : availableSizes) {
