@@ -483,7 +483,7 @@ public class DigitalOceanCloud extends Cloud {
             return null;
         }
         StringCredentials cred = (StringCredentials) CredentialsMatchers.firstOrNull(
-                CredentialsProvider.lookupCredentials(StringCredentials.class, Jenkins.get(), ACL.SYSTEM,
+                CredentialsProvider.lookupCredentialsInItemGroup(StringCredentials.class, Jenkins.get(), ACL.SYSTEM2,
                         Collections.emptyList()),
                 CredentialsMatchers.withId(credentialId));
         if (cred == null) {
@@ -497,7 +497,7 @@ public class DigitalOceanCloud extends Cloud {
             return null;
         }
         SSHUserPrivateKey cred = (SSHUserPrivateKey) CredentialsMatchers.firstOrNull(
-                CredentialsProvider.lookupCredentials(SSHUserPrivateKey.class, Jenkins.get(), ACL.SYSTEM,
+                CredentialsProvider.lookupCredentialsInItemGroup(SSHUserPrivateKey.class, Jenkins.get(), ACL.SYSTEM2,
                         Collections.emptyList()),
                 CredentialsMatchers.withId(credentialId));
         if (cred == null) {
@@ -754,7 +754,7 @@ public class DigitalOceanCloud extends Cloud {
                     .includeEmptyValue()
                     .includeMatchingAs(Jenkins.getAuthentication2(), Jenkins.get(), SSHUserPrivateKey.class,
                             Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
-                    .includeMatchingAs(ACL.SYSTEM, Jenkins.get(), SSHUserPrivateKey.class,
+                    .includeMatchingAs(ACL.SYSTEM2, Jenkins.get(), SSHUserPrivateKey.class,
                             Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
                     .includeCurrentValue(credentialsId);
         }
@@ -768,7 +768,7 @@ public class DigitalOceanCloud extends Cloud {
                     .includeEmptyValue()
                     .includeMatchingAs(Jenkins.getAuthentication2(), Jenkins.get(), StringCredentials.class,
                             Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
-                    .includeMatchingAs(ACL.SYSTEM, Jenkins.get(), StringCredentials.class,
+                    .includeMatchingAs(ACL.SYSTEM2, Jenkins.get(), StringCredentials.class,
                             Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always())
                     .includeCurrentValue(credentialsId);
         }

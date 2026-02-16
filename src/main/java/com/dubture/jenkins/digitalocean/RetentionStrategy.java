@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanComputer> {
 
+    @SuppressWarnings("unused")
     private static class DescriptorImpl extends Descriptor<hudson.slaves.RetentionStrategy<?>> {
         @NonNull
         @Override
@@ -55,14 +56,15 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanC
 
     @Override
     protected long checkCycle() {
-        return 1; // ask Jenkins to check every 1 minute, though it might decide to check in 2 or 3 (or longer?)
+        return 1; // ask Jenkins to check every 1 minute, though it might decide to check in 2 or
+                  // 3 (or longer?)
     }
 
     @Override
     protected boolean isIdleForTooLong(DigitalOceanComputer digitalOceanComputer) {
         Slave node = digitalOceanComputer.getNode();
 
-        if(node == null) {
+        if (node == null) {
             return false;
         }
 
@@ -73,11 +75,14 @@ public class RetentionStrategy extends CloudSlaveRetentionStrategy<DigitalOceanC
         }
 
         if (idleTerminationTime > 0) {
-            return System.currentTimeMillis() - digitalOceanComputer.getIdleStartMilliseconds() > TimeUnit.MINUTES.toMillis(idleTerminationTime);
+            return System.currentTimeMillis() - digitalOceanComputer.getIdleStartMilliseconds() > TimeUnit.MINUTES
+                    .toMillis(idleTerminationTime);
         } else if (idleTerminationTime < 0 && digitalOceanComputer.isIdle()) {
-            // DigitalOcean charges for the next hour at 1:30, 2:30, 3:30, etc. up time, so kill the node
+            // DigitalOcean charges for the next hour at 1:30, 2:30, 3:30, etc. up time, so
+            // kill the node
             // if it idles and is about to get charged for next hour
-            long uptimeMinutes = TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis() - digitalOceanComputer.getStartTimeMillis());
+            long uptimeMinutes = TimeUnit.MILLISECONDS
+                    .toMinutes(System.currentTimeMillis() - digitalOceanComputer.getStartTimeMillis());
 
             if (uptimeMinutes < 60) {
                 return false;
