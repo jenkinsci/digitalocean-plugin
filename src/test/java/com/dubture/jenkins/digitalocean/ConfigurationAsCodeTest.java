@@ -108,7 +108,8 @@ class ConfigurationAsCodeTest {
     void testHandleDropletIdSlugName(JenkinsConfiguredWithCodeRule j) throws Exception {
         ConfiguratorRegistry registry = ConfiguratorRegistry.get();
         ConfigurationContext context = new ConfigurationContext(registry);
-        String exported = toYamlString(getJenkinsRoot(context).get("clouds"));
+        toYamlString(getJenkinsRoot(context).get("clouds"));
+
         final DigitalOceanCloud doCloud = (DigitalOceanCloud) Jenkins.get().getCloud("post-droplet-name");
         assertNotNull(doCloud);
 

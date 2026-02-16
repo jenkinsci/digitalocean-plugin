@@ -40,7 +40,6 @@ import org.jenkinsci.plugins.cloudstats.TrackedItem;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  *
@@ -55,8 +54,6 @@ import java.util.logging.Logger;
  * @author robert.gruendler@dubture.com
  */
 public class Slave extends AbstractCloudSlave implements TrackedItem {
-
-    private static final Logger LOG = Logger.getLogger(Slave.class.getName());
 
     private final ProvisioningActivity.Id provisioningId;
 
@@ -84,9 +81,14 @@ public class Slave extends AbstractCloudSlave implements TrackedItem {
             String labelString, ComputerLauncher launcher, RetentionStrategy<?> retentionStrategy,
             List<? extends NodeProperty<?>> nodeProperties, String initScript)
             throws Descriptor.FormException, IOException {
+        super(name, remoteFS, launcher);
 
-        super(name, nodeDescription, remoteFS, numExecutors, Mode.NORMAL, labelString, launcher, retentionStrategy,
-                nodeProperties);
+        setNodeDescription(nodeDescription);
+        setNumExecutors(numExecutors);
+        setMode(Mode.NORMAL);
+        setLabelString(labelString);
+        setRetentionStrategy(retentionStrategy);
+        setNodeProperties(nodeProperties);
 
         this.provisioningId = provisioningId;
         this.cloudName = cloudName;
