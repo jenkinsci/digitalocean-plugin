@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collections;
 import java.util.List;
@@ -132,6 +132,8 @@ class ConfigurationAsCodeTest {
      * When a DigitalOcean cloud template uses a name-based image reference (e.g., "name:img-agent-cicd")
      * and imageFilterPrivate/imageFilterType are omitted from the JCasC configuration,
      * provisioning should NOT fail with an NPE in ImageFilters.getQueryParameters().
+     * <p>
+     * The fix defaults null filter values to ALL in the ImageFilters constructor.
      *
      * @see <a href="https://github.com/jenkinsci/digitalocean-plugin/issues/101">Issue #101</a>
      */
@@ -149,21 +151,26 @@ class ConfigurationAsCodeTest {
         assertEquals(DigitalOcean.ImageBy.NAME, slaveTemplate.getImageBy());
 
         // These filters are intentionally omitted in the YAML to reproduce issue #101
-        // When null, ImageFilters.getQueryParameters() throws NPE
         assertNull(slaveTemplate.getImageFilterPrivate(), "imageFilterPrivate should be null when omitted from JCasC");
         assertNull(slaveTemplate.getImageFilterType(), "imageFilterType should be null when omitted from JCasC");
 
-        // This is the key assertion: creating ImageFilters with null values should NOT throw NPE
-        // Currently this WILL fail until the bug is fixed
+        // Creating ImageFilters with null values should NOT throw NPE - nulls default to ALL
         ImageFilters imageFilters = new ImageFilters(
                 slaveTemplate.getImageFilterPrivate(),
                 slaveTemplate.getImageFilterType(),
                 ""
         );
 
-        // If the bug is fixed, getQueryParameters() should handle null filters gracefully
-        // and return an empty map or sensible defaults
+        // Verify that null values defaulted to ALL
+        assertEquals(ImageFilters.ImageFilterPrivate.ALL, imageFilters.getPrivateFilter(),
+                "null privateFilter should default to ALL");
+        assertEquals(ImageFilters.ImageFilterType.ALL, imageFilters.getType(),
+                "null type should default to ALL");
+
+        // getQueryParameters() should work without NPE and return empty map (both ALL filters return empty maps)
         assertNotNull(imageFilters.getQueryParameters(),
-                "getQueryParameters() should not throw NPE when filters are null");
+                "getQueryParameters() should not throw NPE when filters were null");
+        assertTrue(imageFilters.getQueryParameters().isEmpty(),
+                "getQueryParameters() should return empty map when both filters default to ALL");
     }
 }
