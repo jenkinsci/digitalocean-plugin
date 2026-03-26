@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Collections;
 import java.util.List;
@@ -123,5 +124,46 @@ class ConfigurationAsCodeTest {
 
         assertEquals("name:this is a droplet name", templates.get(2).getImageId());
         assertEquals(DigitalOcean.ImageBy.NAME, templates.get(2).getImageBy());
+    }
+
+    /**
+     * Test for issue #101: Provisioning name-based images NPEs when image filters are omitted.
+     * <p>
+     * When a DigitalOcean cloud template uses a name-based image reference (e.g., "name:img-agent-cicd")
+     * and imageFilterPrivate/imageFilterType are omitted from the JCasC configuration,
+     * provisioning should NOT fail with an NPE in ImageFilters.getQueryParameters().
+     *
+     * @see <a href="https://github.com/jenkinsci/digitalocean-plugin/issues/101">Issue #101</a>
+     */
+    @Test
+    @ConfiguredWithCode("issue-101-null-image-filters.yml")
+    void testIssue101_NameBasedImageWithNullFilters(JenkinsConfiguredWithCodeRule j) {
+        final DigitalOceanCloud doCloud = (DigitalOceanCloud) Jenkins.get().getCloud("issue-101-test");
+        assertNotNull(doCloud);
+
+        final List<SlaveTemplate> templates = doCloud.getTemplates();
+        assertEquals(1, templates.size());
+
+        SlaveTemplate slaveTemplate = templates.get(0);
+        assertEquals("name:img-agent-cicd-fra1-do-live", slaveTemplate.getImageId());
+        assertEquals(DigitalOcean.ImageBy.NAME, slaveTemplate.getImageBy());
+
+        // These filters are intentionally omitted in the YAML to reproduce issue #101
+        // When null, ImageFilters.getQueryParameters() throws NPE
+        assertNull(slaveTemplate.getImageFilterPrivate(), "imageFilterPrivate should be null when omitted from JCasC");
+        assertNull(slaveTemplate.getImageFilterType(), "imageFilterType should be null when omitted from JCasC");
+
+        // This is the key assertion: creating ImageFilters with null values should NOT throw NPE
+        // Currently this WILL fail until the bug is fixed
+        ImageFilters imageFilters = new ImageFilters(
+                slaveTemplate.getImageFilterPrivate(),
+                slaveTemplate.getImageFilterType(),
+                ""
+        );
+
+        // If the bug is fixed, getQueryParameters() should handle null filters gracefully
+        // and return an empty map or sensible defaults
+        assertNotNull(imageFilters.getQueryParameters(),
+                "getQueryParameters() should not throw NPE when filters are null");
     }
 }
