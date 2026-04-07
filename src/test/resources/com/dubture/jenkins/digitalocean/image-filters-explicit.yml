@@ -1,0 +1,79 @@
+---
+# Test fixture for verifying explicit imageFilterPrivate and imageFilterType values
+# are properly saved, loaded, and affect the query parameters.
+configuration-as-code:
+  deprecated: warn
+jenkins:
+  clouds:
+    - digitalOcean:
+        authTokenCredentialId: halkeye-digitalocean
+        privateKeyCredentialId: halkeye-digitalocean-sshkey
+        connectionRetryWait: 10
+        instanceCap: 10
+        name: "image-filters-test"
+        sshKeyId: 12345
+        templates:
+        # Template with only imageFilterPrivate set (PRIVATE)
+        - idleTerminationInMinutes: 10
+          installMonitoring: false
+          instanceCap: 2
+          labellessJobsAllowed: true
+          imageId: "name:private-only-image"
+          imageFilterPrivate: PRIVATE
+          name: "private-only"
+          numExecutors: 1
+          regionId: "nyc1"
+          setupPrivateNetworking: false
+          sizeId: "s-1vcpu-1gb"
+          sshPort: 22
+          username: "root"
+          workspacePath: "/jenkins/"
+        # Template with only imageFilterType set (DISTRIBUTION)
+        - idleTerminationInMinutes: 10
+          installMonitoring: false
+          instanceCap: 2
+          labellessJobsAllowed: true
+          imageId: "name:type-only-image"
+          imageFilterType: DISTRIBUTION
+          name: "type-only"
+          numExecutors: 1
+          regionId: "nyc1"
+          setupPrivateNetworking: false
+          sizeId: "s-1vcpu-1gb"
+          sshPort: 22
+          username: "root"
+          workspacePath: "/jenkins/"
+        # Template with both imageFilterPrivate (PRIVATE) and imageFilterType (APPLICATION)
+        - idleTerminationInMinutes: 10
+          installMonitoring: false
+          instanceCap: 2
+          labellessJobsAllowed: true
+          imageId: "name:both-filters-image"
+          imageFilterPrivate: PRIVATE
+          imageFilterType: APPLICATION
+          name: "both-filters"
+          numExecutors: 1
+          regionId: "nyc1"
+          setupPrivateNetworking: false
+          sizeId: "s-1vcpu-1gb"
+          sshPort: 22
+          username: "root"
+          workspacePath: "/jenkins/"
+        # Template with ALL values explicitly set (should produce empty query params)
+        - idleTerminationInMinutes: 10
+          installMonitoring: false
+          instanceCap: 2
+          labellessJobsAllowed: true
+          imageId: "name:all-filters-image"
+          imageFilterPrivate: ALL
+          imageFilterType: ALL
+          name: "all-filters"
+          numExecutors: 1
+          regionId: "nyc1"
+          setupPrivateNetworking: false
+          sizeId: "s-1vcpu-1gb"
+          sshPort: 22
+          username: "root"
+          workspacePath: "/jenkins/"
+        timeoutMinutes: 5
+        usePrivateNetworking: false

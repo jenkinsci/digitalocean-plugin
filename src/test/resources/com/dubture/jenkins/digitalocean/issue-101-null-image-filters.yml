@@ -1,0 +1,35 @@
+---
+# Test fixture for issue #101: Provisioning name-based images NPEs when image filters are omitted
+# https://github.com/jenkinsci/digitalocean-plugin/issues/101
+#
+# This configuration uses a name-based imageId WITHOUT specifying imageFilterPrivate
+# or imageFilterType, which should NOT cause an NPE when provisioning.
+configuration-as-code:
+  deprecated: warn
+jenkins:
+  clouds:
+    - digitalOcean:
+        authTokenCredentialId: halkeye-digitalocean
+        privateKeyCredentialId: halkeye-digitalocean-sshkey
+        connectionRetryWait: 10
+        instanceCap: 5
+        name: "issue-101-test"
+        sshKeyId: 12345
+        templates:
+        - idleTerminationInMinutes: -1
+          installMonitoring: false
+          instanceCap: 7
+          labellessJobsAllowed: true
+          imageId: "name:img-agent-cicd-fra1-do-live"
+          name: "fra1"
+          numExecutors: 1
+          regionId: "fra1"
+          setupPrivateNetworking: false
+          sizeId: "s-4vcpu-8gb-240gb-intel"
+          sshPort: 22
+          username: "jenkins"
+          workspacePath: "/var/lib/jenkins"
+          # NOTE: imageFilterPrivate and imageFilterType are intentionally OMITTED
+          # to reproduce the bug reported in issue #101
+        timeoutMinutes: 5
+        usePrivateNetworking: false

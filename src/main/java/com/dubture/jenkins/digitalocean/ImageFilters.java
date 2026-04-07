@@ -106,8 +106,8 @@ public class ImageFilters implements Serializable {
 
     public ImageFilters(ImageFilterPrivate privateFilter, ImageFilterType type,
             String tags) {
-        this.privateFilter = privateFilter;
-        this.type = type;
+        this.privateFilter = privateFilter != null ? privateFilter : ImageFilterPrivate.ALL;
+        this.type = type != null ? type : ImageFilterType.ALL;
         this.tags = new ArrayList<>();
         if (tags != null && !tags.trim().isEmpty()) {
             for (String tag : tags.split(",")) {
